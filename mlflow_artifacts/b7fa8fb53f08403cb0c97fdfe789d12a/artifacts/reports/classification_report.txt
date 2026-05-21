@@ -1,0 +1,19 @@
+RAPPORT DE CLASSIFICATION - VALIDATION SET
+==================================================
+              precision    recall  f1-score   support
+
+ Non potable       0.82      0.83      0.83       400
+     Potable       0.73      0.72      0.73       256
+
+    accuracy                           0.79       656
+   macro avg       0.78      0.78      0.78       656
+weighted avg       0.79      0.79      0.79       656
+
+METRIQUES DETAILLEES :
+  val_accuracy: 0.7881
+  val_f1: 0.7269
+  val_precision: 0.7312
+  val_recall: 0.7227
+  val_roc_auc: 0.8765
+  val_pr_auc: 0.8395
+  cv_roc_auc: 0.8965 +/- 0.0030
