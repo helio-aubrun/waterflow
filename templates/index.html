@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Water Potability</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 1rem;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 760px;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+      color: #f8fafc;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-bottom: 2rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 0.35rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .field input {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 0.5rem;
+      padding: 0.6rem 0.75rem;
+      font-size: 0.9rem;
+      color: #f1f5f9;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+
+    .field input:focus {
+      border-color: #3b82f6;
+    }
+
+    .field input.invalid {
+      border-color: #ef4444;
+    }
+
+    .hint {
+      font-size: 0.68rem;
+      color: #475569;
+      margin-top: 0.2rem;
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: 0.8rem;
+      background: #3b82f6;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    button[type="submit"]:hover  { background: #2563eb; }
+    button[type="submit"]:active { background: #1d4ed8; }
+    button[type="submit"]:disabled { background: #334155; cursor: not-allowed; }
+
+    #result {
+      margin-top: 1.5rem;
+      border-radius: 0.75rem;
+      padding: 1.25rem 1.5rem;
+      display: none;
+      align-items: center;
+      gap: 1.25rem;
+    }
+
+    #result.potable     { background: #052e16; border: 1px solid #16a34a; }
+    #result.non-potable { background: #2d0707; border: 1px solid #dc2626; }
+    #result.error-box   { background: #1c1407; border: 1px solid #ca8a04; }
+
+    .result-icon {
+      font-size: 2.2rem;
+      flex-shrink: 0;
+    }
+
+    .result-label {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    #result.potable     .result-label { color: #4ade80; }
+    #result.non-potable .result-label { color: #f87171; }
+    #result.error-box   .result-label { color: #fbbf24; }
+
+    .result-prob {
+      font-size: 0.82rem;
+      color: #94a3b8;
+      margin-top: 0.2rem;
+    }
+
+    .prob-bar-wrap {
+      height: 6px;
+      background: #1e293b;
+      border-radius: 999px;
+      margin-top: 0.5rem;
+      overflow: hidden;
+      width: 100%;
+    }
+
+    .prob-bar {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+
+    #result.potable     .prob-bar { background: #16a34a; }
+    #result.non-potable .prob-bar { background: #dc2626; }
+
+    .spinner {
+      display: none;
+      width: 18px; height: 18px;
+      border: 2px solid #334155;
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 580px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Water Potability Predictor</h1>
+    <p class="subtitle">Entrez les 9 mesures physico-chimiques — le modèle XGBoost prédit si l'eau est potable.</p>
+
+    <form id="form" novalidate>
+      <div class="grid">
+        <div class="field">
+          <label>pH</label>
+          <input type="number" step="any" name="ph" placeholder="7.0" required>
+          <div class="hint">OMS : 6.5 – 8.5</div>
+        </div>
+        <div class="field">
+          <label>Hardness (mg/L)</label>
+          <input type="number" step="any" name="Hardness" placeholder="196.0" required>
+        </div>
+        <div class="field">
+          <label>Solids (ppm)</label>
+          <input type="number" step="any" name="Solids" placeholder="20000.0" required>
+        </div>
+        <div class="field">
+          <label>Chloramines (ppm)</label>
+          <input type="number" step="any" name="Chloramines" placeholder="7.1" required>
+          <div class="hint">Seuil OMS : &lt; 4</div>
+        </div>
+        <div class="field">
+          <label>Sulfate (mg/L)</label>
+          <input type="number" step="any" name="Sulfate" placeholder="333.0" required>
+        </div>
+        <div class="field">
+          <label>Conductivity (μS/cm)</label>
+          <input type="number" step="any" name="Conductivity" placeholder="420.0" required>
+        </div>
+        <div class="field">
+          <label>Organic Carbon (ppm)</label>
+          <input type="number" step="any" name="Organic_carbon" placeholder="14.0" required>
+        </div>
+        <div class="field">
+          <label>Trihalomethanes (μg/L)</label>
+          <input type="number" step="any" name="Trihalomethanes" placeholder="66.0" required>
+          <div class="hint">Seuil OMS : &lt; 80</div>
+        </div>
+        <div class="field">
+          <label>Turbidity (NTU)</label>
+          <input type="number" step="any" name="Turbidity" placeholder="3.9" required>
+          <div class="hint">Seuil OMS : &lt; 5</div>
+        </div>
+      </div>
+
+      <button type="submit" id="btn">
+        <span id="btn-text">Analyser</span>
+        <div class="spinner" id="spinner"></div>
+      </button>
+    </form>
+
+    <div id="result">
+      <div class="result-icon" id="result-icon"></div>
+      <div style="flex: 1">
+        <div class="result-label" id="result-label"></div>
+        <div class="result-prob" id="result-prob"></div>
+        <div class="prob-bar-wrap" id="bar-wrap">
+          <div class="prob-bar" id="prob-bar"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form    = document.getElementById('form');
+    const btn     = document.getElementById('btn');
+    const btnText = document.getElementById('btn-text');
+    const spinner = document.getElementById('spinner');
+    const result  = document.getElementById('result');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Validate all inputs filled
+      const inputs = form.querySelectorAll('input');
+      let valid = true;
+      const payload = {};
+      inputs.forEach(inp => {
+        inp.classList.remove('invalid');
+        if (inp.value === '') {
+          inp.classList.add('invalid');
+          valid = false;
+        } else {
+          payload[inp.name] = parseFloat(inp.value);
+        }
+      });
+      if (!valid) return;
+
+      // Show loading
+      btn.disabled = true;
+      btnText.style.display = 'none';
+      spinner.style.display = 'block';
+      result.style.display  = 'none';
+
+      try {
+        const res  = await fetch('/predict', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        result.style.display = 'flex';
+
+        if (data.error) {
+          result.className = 'error-box';
+          document.getElementById('result-icon').textContent  = '⚠';
+          document.getElementById('result-label').textContent = data.error;
+          document.getElementById('result-prob').textContent  = '';
+          document.getElementById('bar-wrap').style.display   = 'none';
+        } else {
+          const pct = Math.round(data.probability * 100);
+          result.className = data.potable === 1 ? 'potable' : 'non-potable';
+          document.getElementById('result-icon').textContent  = data.potable === 1 ? '✓' : '✗';
+          document.getElementById('result-label').textContent = data.label;
+          document.getElementById('result-prob').textContent  = `Probabilité de potabilité : ${pct}%`;
+          document.getElementById('bar-wrap').style.display   = 'block';
+          document.getElementById('prob-bar').style.width     = pct + '%';
+        }
+      } catch {
+        result.style.display  = 'flex';
+        result.className      = 'error-box';
+        document.getElementById('result-icon').textContent  = '⚠';
+        document.getElementById('result-label').textContent = 'Erreur de connexion au serveur';
+        document.getElementById('result-prob').textContent  = '';
+        document.getElementById('bar-wrap').style.display   = 'none';
+      }
+
+      btn.disabled = false;
+      btnText.style.display = 'inline';
+      spinner.style.display = 'none';
+    });
+  </script>
+</body>
+</html>

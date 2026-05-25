@@ -6,7 +6,7 @@ Prérequis : avoir exécuté water_xgboost.ipynb et water_mlflow_server.ipynb
 import joblib
 import numpy as np
 import mlflow.xgboost
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
 
@@ -21,6 +21,11 @@ FEATURES = [
 mlflow.set_tracking_uri("sqlite:///mlflow_water.db")
 model  = mlflow.xgboost.load_model(MLFLOW_MODEL_URI)
 scaler = joblib.load(SCALER_PATH)
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
 
 
 @app.route("/health", methods=["GET"])
