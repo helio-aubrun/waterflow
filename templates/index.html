@@ -1,310 +1,801 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Water Potability</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #0f172a;
-      color: #e2e8f0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-    }
-
-    .card {
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 1rem;
-      padding: 2.5rem;
-      width: 100%;
-      max-width: 760px;
-      box-shadow: 0 25px 50px rgba(0,0,0,0.4);
-    }
-
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin-bottom: 0.25rem;
-      color: #f8fafc;
-    }
-
-    .subtitle {
-      font-size: 0.85rem;
-      color: #64748b;
-      margin-bottom: 2rem;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .field label {
-      display: block;
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: #94a3b8;
-      margin-bottom: 0.35rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .field input {
-      width: 100%;
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 0.5rem;
-      padding: 0.6rem 0.75rem;
-      font-size: 0.9rem;
-      color: #f1f5f9;
-      transition: border-color 0.15s;
-      outline: none;
-    }
-
-    .field input:focus {
-      border-color: #3b82f6;
-    }
-
-    .field input.invalid {
-      border-color: #ef4444;
-    }
-
-    .hint {
-      font-size: 0.68rem;
-      color: #475569;
-      margin-top: 0.2rem;
-    }
-
-    button[type="submit"] {
-      width: 100%;
-      padding: 0.8rem;
-      background: #3b82f6;
-      color: #fff;
-      font-size: 0.95rem;
-      font-weight: 600;
-      border: none;
-      border-radius: 0.5rem;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-
-    button[type="submit"]:hover  { background: #2563eb; }
-    button[type="submit"]:active { background: #1d4ed8; }
-    button[type="submit"]:disabled { background: #334155; cursor: not-allowed; }
-
-    #result {
-      margin-top: 1.5rem;
-      border-radius: 0.75rem;
-      padding: 1.25rem 1.5rem;
-      display: none;
-      align-items: center;
-      gap: 1.25rem;
-    }
-
-    #result.potable     { background: #052e16; border: 1px solid #16a34a; }
-    #result.non-potable { background: #2d0707; border: 1px solid #dc2626; }
-    #result.error-box   { background: #1c1407; border: 1px solid #ca8a04; }
-
-    .result-icon {
-      font-size: 2.2rem;
-      flex-shrink: 0;
-    }
-
-    .result-label {
-      font-size: 1.2rem;
-      font-weight: 700;
-    }
-
-    #result.potable     .result-label { color: #4ade80; }
-    #result.non-potable .result-label { color: #f87171; }
-    #result.error-box   .result-label { color: #fbbf24; }
-
-    .result-prob {
-      font-size: 0.82rem;
-      color: #94a3b8;
-      margin-top: 0.2rem;
-    }
-
-    .prob-bar-wrap {
-      height: 6px;
-      background: #1e293b;
-      border-radius: 999px;
-      margin-top: 0.5rem;
-      overflow: hidden;
-      width: 100%;
-    }
-
-    .prob-bar {
-      height: 100%;
-      border-radius: 999px;
-      transition: width 0.4s ease;
-    }
-
-    #result.potable     .prob-bar { background: #16a34a; }
-    #result.non-potable .prob-bar { background: #dc2626; }
-
-    .spinner {
-      display: none;
-      width: 18px; height: 18px;
-      border: 2px solid #334155;
-      border-top-color: #3b82f6;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      margin: 0 auto;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    @media (max-width: 580px) {
-      .grid { grid-template-columns: 1fr 1fr; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waterflow 2 — Potabilité</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, body { font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; }
+        .spin { animation: _spin .7s linear infinite; }
+        @keyframes _spin { to { transform: rotate(360deg); } }
+        .fade-in { animation: _fade .2s ease; }
+        @keyframes _fade { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        input[type=number]::-webkit-inner-spin-button { opacity: 0.4; }
+    </style>
 </head>
-<body>
-  <div class="card">
-    <h1>Water Potability Predictor</h1>
-    <p class="subtitle">Entrez les 9 mesures physico-chimiques — le modèle XGBoost prédit si l'eau est potable.</p>
+<body class="bg-[#0f172a] text-slate-200 min-h-screen">
 
-    <form id="form" novalidate>
-      <div class="grid">
-        <div class="field">
-          <label>pH</label>
-          <input type="number" step="any" name="ph" placeholder="7.0" required>
-          <div class="hint">OMS : 6.5 – 8.5</div>
-        </div>
-        <div class="field">
-          <label>Hardness (mg/L)</label>
-          <input type="number" step="any" name="Hardness" placeholder="196.0" required>
-        </div>
-        <div class="field">
-          <label>Solids (ppm)</label>
-          <input type="number" step="any" name="Solids" placeholder="20000.0" required>
-        </div>
-        <div class="field">
-          <label>Chloramines (ppm)</label>
-          <input type="number" step="any" name="Chloramines" placeholder="7.1" required>
-          <div class="hint">Seuil OMS : &lt; 4</div>
-        </div>
-        <div class="field">
-          <label>Sulfate (mg/L)</label>
-          <input type="number" step="any" name="Sulfate" placeholder="333.0" required>
-        </div>
-        <div class="field">
-          <label>Conductivity (μS/cm)</label>
-          <input type="number" step="any" name="Conductivity" placeholder="420.0" required>
-        </div>
-        <div class="field">
-          <label>Organic Carbon (ppm)</label>
-          <input type="number" step="any" name="Organic_carbon" placeholder="14.0" required>
-        </div>
-        <div class="field">
-          <label>Trihalomethanes (μg/L)</label>
-          <input type="number" step="any" name="Trihalomethanes" placeholder="66.0" required>
-          <div class="hint">Seuil OMS : &lt; 80</div>
-        </div>
-        <div class="field">
-          <label>Turbidity (NTU)</label>
-          <input type="number" step="any" name="Turbidity" placeholder="3.9" required>
-          <div class="hint">Seuil OMS : &lt; 5</div>
-        </div>
-      </div>
-
-      <button type="submit" id="btn">
-        <span id="btn-text">Analyser</span>
-        <div class="spinner" id="spinner"></div>
-      </button>
-    </form>
-
-    <div id="result">
-      <div class="result-icon" id="result-icon"></div>
-      <div style="flex: 1">
-        <div class="result-label" id="result-label"></div>
-        <div class="result-prob" id="result-prob"></div>
-        <div class="prob-bar-wrap" id="bar-wrap">
-          <div class="prob-bar" id="prob-bar"></div>
-        </div>
-      </div>
+<!-- ═══════════════════ MODAL ═══════════════════ -->
+<div id="modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl fade-in">
+        <h3 id="modal-title" class="font-bold text-white text-lg mb-1"></h3>
+        <p id="modal-sub" class="text-slate-400 text-sm mb-4"></p>
+        <div id="modal-body"></div>
+        <button onclick="closeModal()"
+            class="mt-4 w-full bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl py-2.5 text-sm font-medium transition-colors">
+            Fermer
+        </button>
     </div>
-  </div>
+</div>
 
-  <script>
-    const form    = document.getElementById('form');
-    const btn     = document.getElementById('btn');
-    const btnText = document.getElementById('btn-text');
-    const spinner = document.getElementById('spinner');
-    const result  = document.getElementById('result');
+<!-- ═══════════════════ LOGIN ═══════════════════ -->
+<div id="pg-login" class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-sm fade-in">
+        <div class="text-center mb-8">
+            <div class="text-5xl mb-3">💧</div>
+            <h1 class="text-2xl font-bold text-white">Waterflow 2</h1>
+            <p class="text-slate-500 text-sm mt-1">Plateforme d'analyse de potabilité</p>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-2xl">
+            <div class="flex bg-slate-900/60 rounded-xl p-1 mb-5">
+                <button id="ltab-client" onclick="setLoginTab('client')"
+                    class="flex-1 py-2 rounded-lg text-sm font-medium transition-all">
+                    🏛 Client
+                </button>
+                <button id="ltab-expert" onclick="setLoginTab('expert')"
+                    class="flex-1 py-2 rounded-lg text-sm font-medium transition-all">
+                    🔬 Expert
+                </button>
+            </div>
+            <div id="ls-client">
+                <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Clé API</label>
+                <input id="inp-key" type="password" placeholder="Collez votre X-API-Key…"
+                    class="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
+                    onkeydown="if(event.key==='Enter')doLogin()">
+            </div>
+            <div id="ls-expert" class="hidden">
+                <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Token Bearer</label>
+                <input id="inp-tok" type="password" placeholder="Collez votre token expert…"
+                    class="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
+                    onkeydown="if(event.key==='Enter')doLogin()">
+            </div>
+            <div id="login-err" class="hidden mt-3 bg-red-900/40 border border-red-800 text-red-300 rounded-lg px-3 py-2 text-sm"></div>
+            <button id="login-btn" onclick="doLogin()"
+                class="mt-4 w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-xl py-3 text-sm font-semibold transition-colors">
+                Se connecter
+            </button>
+            <p class="text-center mt-4">
+                <a href="/apidocs" target="_blank"
+                    class="text-xs text-slate-500 hover:text-blue-400 transition-colors">Documentation API ↗</a>
+            </p>
+        </div>
+    </div>
+</div>
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
+<!-- ═══════════════════ APP ═══════════════════ -->
+<div id="pg-app" class="hidden min-h-screen flex flex-col">
 
-      // Validate all inputs filled
-      const inputs = form.querySelectorAll('input');
-      let valid = true;
-      const payload = {};
-      inputs.forEach(inp => {
-        inp.classList.remove('invalid');
-        if (inp.value === '') {
-          inp.classList.add('invalid');
-          valid = false;
+    <!-- Header -->
+    <header class="bg-slate-800/90 border-b border-slate-700 sticky top-0 z-20 backdrop-blur">
+        <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3 min-w-0">
+                <span class="text-xl select-none">💧</span>
+                <span class="font-bold text-white hidden sm:block">Waterflow 2</span>
+                <span id="hdr-badge" class="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"></span>
+                <span id="hdr-user" class="text-sm text-slate-400 truncate"></span>
+            </div>
+            <!-- Expert tab nav -->
+            <nav id="expert-tabs" class="hidden flex gap-1">
+                <button onclick="showTab('dash')" data-tab="dash"
+                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                    📊 Dashboard
+                </button>
+                <button onclick="showTab('prevs')" data-tab="prevs"
+                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                    🧪 Prélèvements
+                </button>
+                <button onclick="showTab('clis')" data-tab="clis"
+                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                    🏛 Clients
+                </button>
+            </nav>
+            <div class="flex items-center gap-3 shrink-0">
+                <div class="flex items-center gap-1.5">
+                    <span id="h-dot" class="w-2 h-2 rounded-full bg-slate-600"></span>
+                    <span id="h-txt" class="text-xs text-slate-500 hidden sm:block">…</span>
+                </div>
+                <button onclick="logout()"
+                    class="text-xs text-slate-500 hover:text-red-400 transition-colors px-2 py-1 rounded">
+                    Déconnexion
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
+
+        <!-- ─── CLIENT VIEW ─── -->
+        <div id="vw-client" class="hidden">
+            <!-- Stats -->
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 fade-in">
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Prélèvements</p>
+                    <p class="text-3xl font-bold text-white" id="c-stat-tot">—</p>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 fade-in">
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Potables</p>
+                    <p class="text-3xl font-bold text-green-400" id="c-stat-pot">—</p>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 fade-in">
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Non potables</p>
+                    <p class="text-3xl font-bold text-red-400" id="c-stat-npot">—</p>
+                </div>
+            </div>
+
+            <!-- Action panels -->
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <!-- Manual form -->
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 fade-in">
+                    <h2 class="font-semibold text-white mb-4">🧪 Nouvelle analyse manuelle</h2>
+                    <div class="grid grid-cols-2 gap-3" id="manual-fields"></div>
+                    <button id="btn-manual" onclick="submitManual()"
+                        class="mt-4 w-full bg-blue-600 hover:bg-blue-500 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors">
+                        Analyser
+                    </button>
+                    <div id="manual-res" class="hidden mt-4 rounded-xl p-4 text-center"></div>
+                </div>
+
+                <!-- OCR Upload -->
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 fade-in">
+                    <h2 class="font-semibold text-white mb-4">📄 Upload fiche laboratoire</h2>
+                    <label id="drop-zone" for="ocr-inp"
+                        class="block cursor-pointer border-2 border-dashed border-slate-600 hover:border-blue-500 rounded-xl p-8 text-center transition-colors">
+                        <div class="text-4xl mb-2">📁</div>
+                        <p class="text-sm text-slate-400">Glisser-déposer ou cliquer</p>
+                        <p class="text-xs text-slate-600 mt-1">PDF · PNG · JPG · max 20 Mo</p>
+                    </label>
+                    <input id="ocr-inp" type="file" class="hidden" accept=".pdf,.png,.jpg,.jpeg"
+                        onchange="submitOcr(this)">
+                    <div id="ocr-res" class="hidden mt-4 rounded-xl p-3 text-sm"></div>
+                </div>
+            </div>
+
+            <!-- Prelevements list -->
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl fade-in">
+                <div class="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
+                    <h2 class="font-semibold text-white">Mes prélèvements récents</h2>
+                    <button onclick="loadClientPrevs()" class="text-xs text-blue-400 hover:underline">Actualiser</button>
+                </div>
+                <div id="c-prevs"></div>
+            </div>
+        </div>
+
+        <!-- ─── EXPERT VIEW ─── -->
+        <div id="vw-expert" class="hidden">
+
+            <!-- Tab: Dashboard -->
+            <div id="tab-dash" class="hidden">
+                <div class="grid grid-cols-4 gap-4 mb-6">
+                    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 fade-in">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Prélèvements</p>
+                        <p class="text-3xl font-bold text-white" id="kpi-tot">—</p>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 fade-in">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Taux potabilité</p>
+                        <p class="text-3xl font-bold text-green-400" id="kpi-rate">—</p>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 fade-in">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Clients actifs</p>
+                        <p class="text-3xl font-bold text-blue-400" id="kpi-clis">—</p>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 fade-in">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Prédictions</p>
+                        <p class="text-3xl font-bold text-white" id="kpi-pred">—</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 fade-in">
+                        <h3 class="font-semibold text-white mb-4">Moyennes physico-chimiques</h3>
+                        <div id="kpi-moys" class="space-y-1"></div>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 fade-in">
+                        <h3 class="font-semibold text-white mb-4">Derniers prélèvements</h3>
+                        <div id="kpi-rec" class="space-y-1"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Prélèvements -->
+            <div id="tab-prevs" class="hidden">
+                <!-- Filter bar -->
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-4 fade-in">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div>
+                            <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Client</label>
+                            <input id="f-client" type="text" placeholder="COMM-042…"
+                                class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
+                                onkeydown="if(event.key==='Enter')loadAllPrevs()">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Source</label>
+                            <select id="f-source"
+                                class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 transition-colors">
+                                <option value="">Toutes</option>
+                                <option value="manual">Manuel</option>
+                                <option value="ocr">OCR</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Date début</label>
+                            <input id="f-date-from" type="date"
+                                class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 transition-colors [color-scheme:dark]">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Date fin</label>
+                            <input id="f-date-to" type="date"
+                                class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 transition-colors [color-scheme:dark]">
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 mt-3">
+                        <button onclick="loadAllPrevs()"
+                            class="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors">
+                            Filtrer
+                        </button>
+                        <button onclick="resetFilters()"
+                            class="bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg px-4 py-2 text-sm font-medium transition-colors">
+                            Réinitialiser
+                        </button>
+                        <span id="f-count" class="text-xs text-slate-500 ml-auto"></span>
+                    </div>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl fade-in">
+                    <div id="e-prevs"></div>
+                </div>
+            </div>
+
+            <!-- Tab: Clients -->
+            <div id="tab-clis" class="hidden">
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="col-span-2 bg-slate-800 border border-slate-700 rounded-2xl fade-in">
+                        <div class="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
+                            <h2 class="font-semibold text-white">Comptes clients</h2>
+                            <button onclick="loadClients()" class="text-xs text-blue-400 hover:underline">Actualiser</button>
+                        </div>
+                        <div id="clis-list"></div>
+                    </div>
+                    <!-- Create client -->
+                    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 h-fit fade-in">
+                        <h2 class="font-semibold text-white mb-4">➕ Nouveau client</h2>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Identifiant métier</label>
+                                <input id="nc-id" type="text" placeholder="COMM-042"
+                                    class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors">
+                            </div>
+                            <div>
+                                <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Dénomination</label>
+                                <input id="nc-den" type="text" placeholder="Commune de Bordeaux"
+                                    class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors">
+                            </div>
+                            <div>
+                                <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Adresse</label>
+                                <input id="nc-adr" type="text" placeholder="1 Place de la Mairie…"
+                                    class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors">
+                            </div>
+                        </div>
+                        <button onclick="createClient()"
+                            class="mt-4 w-full bg-blue-600 hover:bg-blue-500 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors">
+                            Créer le compte
+                        </button>
+                        <div id="nc-res" class="hidden mt-3 text-xs rounded-lg px-3 py-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+// ════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════
+let S = { type: null, key: null, profile: null, ltab: 'client' };
+try { const raw = localStorage.getItem('wf2'); if (raw) S = JSON.parse(raw); } catch(e) {}
+
+// ════════════════════════════════════════
+// API HELPERS
+// ════════════════════════════════════════
+async function api(method, path, body) {
+    const hdrs = { 'Content-Type': 'application/json' };
+    if (S.type === 'client') hdrs['X-API-Key'] = S.key;
+    if (S.type === 'expert') hdrs['Authorization'] = `Bearer ${S.key}`;
+    const r = await fetch(path, { method, headers: hdrs, body: body ? JSON.stringify(body) : undefined });
+    const d = await r.json().catch(() => ({}));
+    if (r.status === 401) { logout(); throw d; }
+    if (!r.ok) throw d;
+    return d;
+}
+
+async function apiFile(path, fd) {
+    const hdrs = {};
+    if (S.type === 'client') hdrs['X-API-Key'] = S.key;
+    const r = await fetch(path, { method: 'POST', headers: hdrs, body: fd });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw d;
+    return d;
+}
+
+// ════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════
+function setLoginTab(t) {
+    S.ltab = t;
+    const on  = 'flex-1 py-2 rounded-lg text-sm font-medium transition-all bg-slate-700 text-white shadow';
+    const off = 'flex-1 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-slate-200';
+    document.getElementById('ltab-client').className = t === 'client' ? on : off;
+    document.getElementById('ltab-expert').className = t === 'expert' ? on : off;
+    document.getElementById('ls-client').classList.toggle('hidden', t !== 'client');
+    document.getElementById('ls-expert').classList.toggle('hidden', t !== 'expert');
+}
+
+async function doLogin() {
+    document.getElementById('login-err').classList.add('hidden');
+    const key = (S.ltab === 'client'
+        ? document.getElementById('inp-key')
+        : document.getElementById('inp-tok')).value.trim();
+    if (!key) return showLoginErr('Entrez une clé ou un token.');
+
+    const btn = document.getElementById('login-btn');
+    btn.innerHTML = '<span class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full spin"></span>';
+    btn.disabled = true;
+    S.key = key; S.type = S.ltab;
+
+    try {
+        if (S.type === 'client') {
+            S.profile = await api('GET', '/me');
         } else {
-          payload[inp.name] = parseFloat(inp.value);
+            await api('GET', '/admin/clients');
+            try { await api('GET', '/exploitation/metrics'); S.profile = { role: 'exploit' }; }
+            catch(e) { S.profile = { role: 'analyste' }; }
         }
-      });
-      if (!valid) return;
+        localStorage.setItem('wf2', JSON.stringify(S));
+        showApp();
+    } catch(e) {
+        S.key = null; S.type = null; S.profile = null;
+        showLoginErr(e.error || 'Authentification échouée. Vérifiez votre clé.');
+    } finally {
+        btn.textContent = 'Se connecter'; btn.disabled = false;
+    }
+}
 
-      // Show loading
-      btn.disabled = true;
-      btnText.style.display = 'none';
-      spinner.style.display = 'block';
-      result.style.display  = 'none';
+function showLoginErr(msg) {
+    const el = document.getElementById('login-err');
+    el.textContent = msg; el.classList.remove('hidden');
+}
 
-      try {
-        const res  = await fetch('/predict', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify(payload),
-        });
-        const data = await res.json();
+function logout() {
+    S = { type: null, key: null, profile: null, ltab: 'client' };
+    localStorage.removeItem('wf2');
+    document.getElementById('pg-app').classList.add('hidden');
+    document.getElementById('pg-login').classList.remove('hidden');
+    document.getElementById('login-err').classList.add('hidden');
+    setLoginTab('client');
+}
 
-        result.style.display = 'flex';
+// ════════════════════════════════════════
+// APP SHELL
+// ════════════════════════════════════════
+function showApp() {
+    document.getElementById('pg-login').classList.add('hidden');
+    document.getElementById('pg-app').classList.remove('hidden');
+    pingHealth();
 
-        if (data.error) {
-          result.className = 'error-box';
-          document.getElementById('result-icon').textContent  = '⚠';
-          document.getElementById('result-label').textContent = data.error;
-          document.getElementById('result-prob').textContent  = '';
-          document.getElementById('bar-wrap').style.display   = 'none';
-        } else {
-          const pct = Math.round(data.probability * 100);
-          result.className = data.potable === 1 ? 'potable' : 'non-potable';
-          document.getElementById('result-icon').textContent  = data.potable === 1 ? '✓' : '✗';
-          document.getElementById('result-label').textContent = data.label;
-          document.getElementById('result-prob').textContent  = `Probabilité de potabilité : ${pct}%`;
-          document.getElementById('bar-wrap').style.display   = 'block';
-          document.getElementById('prob-bar').style.width     = pct + '%';
-        }
-      } catch {
-        result.style.display  = 'flex';
-        result.className      = 'error-box';
-        document.getElementById('result-icon').textContent  = '⚠';
-        document.getElementById('result-label').textContent = 'Erreur de connexion au serveur';
-        document.getElementById('result-prob').textContent  = '';
-        document.getElementById('bar-wrap').style.display   = 'none';
-      }
+    if (S.type === 'client') {
+        const p = S.profile;
+        const badge = document.getElementById('hdr-badge');
+        badge.textContent = 'Client';
+        badge.className = 'text-xs px-2 py-0.5 rounded-full font-medium bg-blue-900/60 text-blue-300 shrink-0';
+        document.getElementById('hdr-user').textContent = `${p.id_client} · ${p.denomination}`;
+        document.getElementById('expert-tabs').classList.add('hidden');
+        document.getElementById('vw-expert').classList.add('hidden');
+        document.getElementById('vw-client').classList.remove('hidden');
+        buildManualForm();
+        loadClientStats();
+        loadClientPrevs();
+    } else {
+        const role = S.profile?.role || 'analyste';
+        const badge = document.getElementById('hdr-badge');
+        badge.textContent = role;
+        badge.className = `text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+            role === 'exploit' ? 'bg-purple-900/60 text-purple-300' : 'bg-green-900/60 text-green-300'
+        }`;
+        document.getElementById('hdr-user').textContent =
+            role === 'exploit' ? 'Responsable exploitation' : 'Analyste qualité';
+        document.getElementById('expert-tabs').classList.remove('hidden');
+        document.getElementById('vw-client').classList.add('hidden');
+        document.getElementById('vw-expert').classList.remove('hidden');
+        showTab('dash');
+    }
+}
 
-      btn.disabled = false;
-      btnText.style.display = 'inline';
-      spinner.style.display = 'none';
+function showTab(tab) {
+    ['dash', 'prevs', 'clis'].forEach(t => document.getElementById(`tab-${t}`)?.classList.add('hidden'));
+    document.getElementById(`tab-${tab}`)?.classList.remove('hidden');
+    document.querySelectorAll('.tab-btn').forEach(b => {
+        const active = b.dataset.tab === tab;
+        b.className = `tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            active ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
+        }`;
     });
-  </script>
+    if (tab === 'dash')  loadDashboard();
+    if (tab === 'prevs') loadAllPrevs();
+    if (tab === 'clis')  loadClients();
+}
+
+// ════════════════════════════════════════
+// HEALTH
+// ════════════════════════════════════════
+async function pingHealth() {
+    try {
+        await fetch('/health');
+        document.getElementById('h-dot').className = 'w-2 h-2 rounded-full bg-green-500';
+        document.getElementById('h-txt').textContent = 'API en ligne';
+    } catch {
+        document.getElementById('h-dot').className = 'w-2 h-2 rounded-full bg-red-500';
+        document.getElementById('h-txt').textContent = 'API hors ligne';
+    }
+}
+
+// ════════════════════════════════════════
+// SHARED UI HELPERS
+// ════════════════════════════════════════
+function potBadge(potable) {
+    if (potable == null) return '<span class="text-slate-600 text-xs">—</span>';
+    const ok = potable === 1;
+    return `<span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full
+        ${ok ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}">
+        <span class="w-1.5 h-1.5 rounded-full ${ok ? 'bg-green-400' : 'bg-red-400'}"></span>
+        ${ok ? 'Potable' : 'Non potable'}
+    </span>`;
+}
+
+function fdate(s) {
+    if (!s) return '—';
+    return new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function spinnerHtml() {
+    return '<div class="flex justify-center py-10"><div class="w-6 h-6 border-2 border-slate-700 border-t-blue-500 rounded-full spin"></div></div>';
+}
+
+function prevTable(items, withClient) {
+    if (!items.length) return '<p class="text-slate-500 text-sm text-center py-10">Aucun prélèvement.</p>';
+    const cols = withClient
+        ? ['Client', 'Date', 'Lieu', 'Source', 'Résultat', 'Probabilité']
+        : ['Date', 'Lieu', 'Source', 'Résultat', 'Probabilité'];
+    return `<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead><tr class="text-xs text-slate-500 uppercase tracking-wide border-b border-slate-700">
+            ${cols.map(c => `<th class="text-left px-6 py-3">${c}</th>`).join('')}
+        </tr></thead>
+        <tbody>${items.map(p => {
+            const pred = p.prediction;
+            return `<tr class="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
+                ${withClient ? `<td class="px-6 py-3 font-medium text-slate-300">${p.client_id || '—'}</td>` : ''}
+                <td class="px-6 py-3 text-slate-400">${fdate(p.date_prelevement || p.created_at)}</td>
+                <td class="px-6 py-3 text-slate-300">${p.lieu || '—'}</td>
+                <td class="px-6 py-3"><span class="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">${p.source || '—'}</span></td>
+                <td class="px-6 py-3">${potBadge(pred?.potable)}</td>
+                <td class="px-6 py-3 text-slate-400">${pred ? `${(pred.probability * 100).toFixed(1)}%` : '—'}</td>
+            </tr>`;
+        }).join('')}</tbody>
+    </table></div>`;
+}
+
+// ════════════════════════════════════════
+// CLIENT — Manual form
+// ════════════════════════════════════════
+const FIELDS = [
+    { k: 'ph',              l: 'pH',                   ph: '7.2',   hint: 'OMS : 6.5–8.5' },
+    { k: 'Hardness',        l: 'Dureté (mg/L)',         ph: '182.5'  },
+    { k: 'Solids',          l: 'Solides (ppm)',          ph: '18630'  },
+    { k: 'Chloramines',     l: 'Chloramines (ppm)',      ph: '8.1',   hint: 'OMS : < 4' },
+    { k: 'Sulfate',         l: 'Sulfate (mg/L)',         ph: '310'    },
+    { k: 'Conductivity',    l: 'Conductivité (μS/cm)',   ph: '415'    },
+    { k: 'Organic_carbon',  l: 'Carbone org. (ppm)',     ph: '14.2'   },
+    { k: 'Trihalomethanes', l: 'Trihalométhanes (μg/L)', ph: '66.4',  hint: 'OMS : < 80' },
+    { k: 'Turbidity',       l: 'Turbidité (NTU)',        ph: '3.8',   hint: 'OMS : < 5' },
+];
+
+function buildManualForm() {
+    document.getElementById('manual-fields').innerHTML = FIELDS.map(f => `
+        <div>
+            <label class="text-xs font-semibold text-slate-500 block mb-1">${f.l}</label>
+            <input id="mf-${f.k}" type="number" step="any" placeholder="${f.ph}"
+                class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors">
+            ${f.hint ? `<p class="text-[10px] text-slate-600 mt-0.5">${f.hint}</p>` : ''}
+        </div>
+    `).join('');
+}
+
+async function submitManual() {
+    const btn = document.getElementById('btn-manual');
+    const res = document.getElementById('manual-res');
+    const body = {};
+    FIELDS.forEach(f => {
+        const v = document.getElementById(`mf-${f.k}`)?.value;
+        if (v !== '' && v != null) body[f.k] = parseFloat(v);
+    });
+    if (!Object.keys(body).length) {
+        res.innerHTML = '⚠ Renseignez au moins quelques mesures.';
+        res.className = 'mt-4 rounded-xl p-4 text-sm text-center bg-yellow-900/30 border border-yellow-800 text-yellow-300';
+        res.classList.remove('hidden'); return;
+    }
+    btn.innerHTML = '<span class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full spin mr-1.5"></span>Analyse…';
+    btn.disabled = true; res.classList.add('hidden');
+    try {
+        const d = await api('POST', '/ingest/manual', body);
+        const p = d.prediction; const ok = p.potable === 1;
+        const pct = (p.probability * 100).toFixed(1);
+        res.innerHTML = `
+            <div class="text-3xl mb-2">${ok ? '✅' : '❌'}</div>
+            <div class="font-bold text-lg ${ok ? 'text-green-400' : 'text-red-400'}">${p.label}</div>
+            <div class="text-xs text-slate-400 mt-1">Probabilité de potabilité : ${pct}%</div>
+            <div class="mt-2.5 h-1.5 rounded-full bg-slate-700 overflow-hidden">
+                <div class="h-full rounded-full ${ok ? 'bg-green-500' : 'bg-red-500'}" style="width:${pct}%"></div>
+            </div>
+            <div class="text-[10px] text-slate-600 mt-2">ID : ${(d.prelevement_id||'').slice(0,8)}…</div>`;
+        res.className = `mt-4 rounded-xl p-4 ${ok ? 'bg-green-900/30 border border-green-800' : 'bg-red-900/30 border border-red-800'}`;
+        res.classList.remove('hidden');
+        loadClientPrevs(); loadClientStats();
+    } catch(e) {
+        res.innerHTML = `⚠ ${e.error || 'Erreur lors de l\'analyse.'}`;
+        res.className = 'mt-4 rounded-xl p-4 text-sm text-center bg-red-900/30 border border-red-800 text-red-300';
+        res.classList.remove('hidden');
+    } finally { btn.textContent = 'Analyser'; btn.disabled = false; }
+}
+
+async function submitOcr(input) {
+    const file = input.files[0]; if (!file) return;
+    const zone = document.getElementById('drop-zone');
+    const res  = document.getElementById('ocr-res');
+    zone.innerHTML = `<div class="py-6 text-center">
+        <div class="w-6 h-6 border-2 border-slate-700 border-t-blue-500 rounded-full spin mx-auto mb-2"></div>
+        <p class="text-xs text-slate-500">Extraction en cours…</p></div>`;
+    res.classList.add('hidden');
+    try {
+        const fd = new FormData(); fd.append('file', file);
+        const d  = await apiFile('/ingest/ocr-and-predict', fd);
+        const p  = d.prediction;
+        if (p) {
+            const ok = p.potable === 1;
+            res.innerHTML = `<div class="font-semibold ${ok ? 'text-green-400' : 'text-red-400'} mb-1">
+                ${ok ? '✅' : '❌'} ${p.label} — ${(p.probability * 100).toFixed(1)}%</div>
+                <div class="text-[10px] text-slate-600">ID : ${(d.prelevement_id||'').slice(0,8)}…</div>`;
+            res.className = `mt-4 rounded-xl p-3 text-sm ${ok
+                ? 'bg-green-900/30 border border-green-800'
+                : 'bg-red-900/30 border border-red-800'}`;
+        } else {
+            res.innerHTML = `<p class="text-yellow-300">📄 OCR réussi — prédiction impossible (mesures insuffisantes)</p>
+                <p class="text-[10px] text-slate-600 mt-1">ID : ${(d.prelevement_id||'').slice(0,8)}…</p>`;
+            res.className = 'mt-4 rounded-xl p-3 text-sm bg-yellow-900/30 border border-yellow-800';
+        }
+        res.classList.remove('hidden');
+        loadClientPrevs(); loadClientStats();
+    } catch(e) {
+        res.innerHTML = `⚠ ${e.error || 'Erreur OCR.'}`;
+        res.className = 'mt-4 rounded-xl p-3 text-sm bg-red-900/30 border border-red-800 text-red-300';
+        res.classList.remove('hidden');
+    } finally {
+        zone.innerHTML = `<div class="text-4xl mb-2">📁</div>
+            <p class="text-sm text-slate-400">Glisser-déposer ou cliquer</p>
+            <p class="text-xs text-slate-600 mt-1">PDF · PNG · JPG · max 20 Mo</p>`;
+        input.value = '';
+    }
+}
+
+async function loadClientStats() {
+    try {
+        const d = await api('GET', '/me/prelevements?per_page=100');
+        const it = d.items || [];
+        document.getElementById('c-stat-tot').textContent  = d.total ?? 0;
+        document.getElementById('c-stat-pot').textContent  = it.filter(p => p.prediction?.potable === 1).length;
+        document.getElementById('c-stat-npot').textContent = it.filter(p => p.prediction?.potable === 0).length;
+    } catch(e) {}
+}
+
+async function loadClientPrevs() {
+    const el = document.getElementById('c-prevs');
+    el.innerHTML = spinnerHtml();
+    try {
+        const d = await api('GET', '/me/prelevements?per_page=20');
+        el.innerHTML = prevTable(d.items || [], false);
+        if ((d.total || 0) > 20)
+            el.innerHTML += `<p class="text-xs text-slate-600 text-center py-3">${d.total} prélèvements · page ${d.page}/${d.pages}</p>`;
+    } catch(e) { el.innerHTML = '<p class="text-red-400 text-sm text-center py-8">Erreur de chargement.</p>'; }
+}
+
+// ════════════════════════════════════════
+// EXPERT — Dashboard
+// ════════════════════════════════════════
+async function loadDashboard() {
+    try {
+        const d = await api('GET', '/analyste/dashboard');
+        document.getElementById('kpi-tot').textContent  = d.total_prelevements ?? '—';
+        document.getElementById('kpi-pred').textContent = d.total_predictions ?? '—';
+        document.getElementById('kpi-clis').textContent = d.clients_actifs ?? '—';
+        document.getElementById('kpi-rate').textContent = d.potable_rate != null
+            ? `${(d.potable_rate * 100).toFixed(1)}%` : '—';
+
+        const MLAB = { ph: 'pH', turbidity: 'Turbidité', conductivity: 'Conductivité', chloramines: 'Chloramines', hardness: 'Dureté' };
+        const moys = d.moyennes || {};
+        document.getElementById('kpi-moys').innerHTML = Object.entries(MLAB).map(([k, l]) => `
+            <div class="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0">
+                <span class="text-sm text-slate-400">${l}</span>
+                <span class="text-sm font-medium text-slate-200">${moys[k] != null ? moys[k] : '—'}</span>
+            </div>`).join('');
+
+        const recs = d.recents || [];
+        document.getElementById('kpi-rec').innerHTML = recs.length
+            ? recs.slice(0, 8).map(p => `
+                <div class="flex items-center justify-between py-2 border-b border-slate-700/50 last:border-0 gap-2">
+                    <div class="min-w-0">
+                        <span class="text-sm text-slate-300 font-medium">${p.client_id || '—'}</span>
+                        <span class="text-xs text-slate-500 ml-1.5">${p.lieu || ''}</span>
+                    </div>
+                    ${potBadge(p.prediction?.potable)}
+                </div>`).join('')
+            : '<p class="text-slate-500 text-sm text-center py-4">Aucun prélèvement.</p>';
+    } catch(e) {}
+}
+
+// ════════════════════════════════════════
+// EXPERT — Prélèvements
+// ════════════════════════════════════════
+async function loadAllPrevs() {
+    const el = document.getElementById('e-prevs');
+    el.innerHTML = spinnerHtml();
+
+    const params = new URLSearchParams({ per_page: 50 });
+    const client   = document.getElementById('f-client')?.value.trim();
+    const source   = document.getElementById('f-source')?.value;
+    const dateFrom = document.getElementById('f-date-from')?.value;
+    const dateTo   = document.getElementById('f-date-to')?.value;
+    if (client)   params.set('client_id',  client);
+    if (source)   params.set('source',     source);
+    if (dateFrom) params.set('date_from',  dateFrom);
+    if (dateTo)   params.set('date_to',    dateTo);
+
+    try {
+        const d = await api('GET', `/analyste/prelevements?${params}`);
+        const items = d.items || [];
+        const total = d.total || 0;
+        el.innerHTML = prevTable(items, true);
+        const cnt = document.getElementById('f-count');
+        if (cnt) cnt.textContent = total > 0 ? `${total} résultat${total > 1 ? 's' : ''}` : 'Aucun résultat';
+        if (total > 50)
+            el.innerHTML += `<p class="text-xs text-slate-600 text-center py-3">${total} prélèvements — affichage limité à 50</p>`;
+    } catch(e) { el.innerHTML = '<p class="text-red-400 text-sm text-center py-8">Erreur.</p>'; }
+}
+
+function resetFilters() {
+    ['f-client', 'f-date-from', 'f-date-to'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+    });
+    const src = document.getElementById('f-source'); if (src) src.value = '';
+    const cnt = document.getElementById('f-count'); if (cnt) cnt.textContent = '';
+    loadAllPrevs();
+}
+
+// ════════════════════════════════════════
+// EXPERT — Clients
+// ════════════════════════════════════════
+async function loadClients() {
+    const el = document.getElementById('clis-list');
+    el.innerHTML = spinnerHtml();
+    try {
+        const clients = await api('GET', '/admin/clients');
+        if (!clients.length) {
+            el.innerHTML = '<p class="text-slate-500 text-sm text-center py-10">Aucun client.</p>'; return;
+        }
+        el.innerHTML = clients.map(c => `
+            <div class="px-5 py-4 border-b border-slate-700/50 last:border-0 flex items-center justify-between hover:bg-slate-700/30 transition-colors gap-3">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0
+                        ${c.actif ? 'bg-blue-900/60 text-blue-300' : 'bg-slate-700 text-slate-500'}">
+                        ${(c.denomination || '?')[0]}
+                    </div>
+                    <div class="min-w-0">
+                        <p class="font-medium text-slate-200 truncate">${c.denomination}</p>
+                        <p class="text-xs text-slate-500">${c.id_client} · ${c.nb_prelevements} prélèvement${c.nb_prelevements !== 1 ? 's' : ''}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <span class="text-xs px-2 py-0.5 rounded-full ${c.actif ? 'bg-green-900/50 text-green-400' : 'bg-slate-700 text-slate-500'}">
+                        ${c.actif ? 'Actif' : 'Inactif'}
+                    </span>
+                    <span class="text-xs text-slate-600 font-mono hidden sm:block">${c.api_key_hint || '—'}</span>
+                    <button onclick="genKey('${c.id}','${c.id_client}')"
+                        class="text-xs bg-slate-700 hover:bg-blue-900/60 hover:text-blue-300 text-slate-400 px-2.5 py-1.5 rounded-lg transition-colors">
+                        🔑 Nouvelle clé
+                    </button>
+                </div>
+            </div>`).join('');
+    } catch(e) { el.innerHTML = '<p class="text-red-400 text-sm text-center py-8">Erreur.</p>'; }
+}
+
+async function createClient() {
+    const id  = document.getElementById('nc-id').value.trim();
+    const den = document.getElementById('nc-den').value.trim();
+    const adr = document.getElementById('nc-adr').value.trim();
+    const res = document.getElementById('nc-res');
+    if (!id || !den || !adr) {
+        res.textContent = '⚠ Tous les champs sont requis.';
+        res.className = 'mt-3 text-xs rounded-lg px-3 py-2 bg-yellow-900/30 border border-yellow-800 text-yellow-300';
+        res.classList.remove('hidden'); return;
+    }
+    try {
+        await api('POST', '/admin/clients', { id_client: id, denomination: den, adresse: adr, rgpd_consent: true });
+        res.textContent = `✅ Client "${id}" créé. Cliquez sur "Nouvelle clé" pour générer sa clé API.`;
+        res.className = 'mt-3 text-xs rounded-lg px-3 py-2 bg-green-900/30 border border-green-800 text-green-300';
+        res.classList.remove('hidden');
+        ['nc-id', 'nc-den', 'nc-adr'].forEach(i => document.getElementById(i).value = '');
+        loadClients();
+    } catch(e) {
+        res.textContent = `⚠ ${e.error || 'Erreur.'}`;
+        res.className = 'mt-3 text-xs rounded-lg px-3 py-2 bg-red-900/30 border border-red-800 text-red-300';
+        res.classList.remove('hidden');
+    }
+}
+
+async function genKey(clientId, clientLabel) {
+    try {
+        const d = await api('POST', `/admin/clients/${clientId}/apikey`);
+        openModal(
+            `🔑 Clé API — ${d.id_client}`,
+            '⚠ Copiez cette clé maintenant. Elle ne sera plus jamais affichée.',
+            `<div class="bg-[#0f172a] border border-slate-700 rounded-xl p-4 font-mono text-sm text-green-300 break-all select-all leading-relaxed">
+                ${d.api_key}
+            </div>
+            <button id="copy-btn"
+                onclick="navigator.clipboard.writeText('${d.api_key}').then(()=>{ document.getElementById('copy-btn').textContent='✅ Copié !'; })"
+                class="mt-3 w-full bg-blue-600 hover:bg-blue-500 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors">
+                📋 Copier la clé
+            </button>
+            <p class="text-xs text-slate-500 text-center mt-2">Générée le ${fdate(d.generated_at)}</p>`
+        );
+        loadClients();
+    } catch(e) { alert(e.error || 'Erreur génération clé.'); }
+}
+
+// ════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════
+function openModal(title, sub, body) {
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-sub').textContent   = sub;
+    document.getElementById('modal-body').innerHTML    = body;
+    document.getElementById('modal').classList.remove('hidden');
+}
+function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+document.getElementById('modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeModal();
+});
+
+// ════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════
+if (S.type && S.key && S.profile) {
+    showApp();
+} else {
+    setLoginTab(S.ltab || 'client');
+}
+</script>
 </body>
 </html>

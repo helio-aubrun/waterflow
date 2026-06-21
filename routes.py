@@ -206,6 +206,12 @@ def _page_params() -> tuple[int, int]:
 # PUBLIC
 # ════════════════════════════════════════════════════════════════════════════
 
+@bp.route("/", methods=["GET"])
+def index():
+    from flask import render_template
+    return render_template("index.html")
+
+
 @bp.route("/health", methods=["GET"])
 def health():
     return jsonify({

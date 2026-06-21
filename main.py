@@ -4,6 +4,9 @@ Lance le serveur Flask ou Gunicorn selon l'environnement.
 """
 
 import os
+from dotenv import load_dotenv
+load_dotenv()  # charge .env si présent
+
 from api.app import create_app
 
 app = create_app()

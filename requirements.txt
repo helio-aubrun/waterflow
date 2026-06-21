@@ -1,6 +1,7 @@
 # ── Web framework ─────────────────────────────────────────────────────────
 flask>=3.0,<4
 gunicorn>=22.0
+python-dotenv>=1.0
 
 # ── Base de données ────────────────────────────────────────────────────────
 sqlalchemy>=2.0,<3
@@ -16,6 +17,9 @@ scikit-learn>=1.4        # pour le scaler
 anthropic>=0.28          # Claude Vision (fallback OCR)
 requests>=2.31           # OCR.space HTTP calls
 pymupdf>=1.23            # PDF → images (fitz)
+
+# ── Documentation API ─────────────────────────────────────────────────────
+flasgger>=0.9.7.1
 
 # ── Tests ─────────────────────────────────────────────────────────────────
 pytest>=8.0
