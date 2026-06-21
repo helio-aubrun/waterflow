@@ -1,14 +1,25 @@
 """
-api/models/db.py — Modèles SQLAlchemy conformes RGPD
+api/models/db.py — Modèles SQLAlchemy conformes RGPD — Waterflow 2
+
+Deux mondes d'authentification séparés :
+  ┌─────────────────────────────────────────────────────────────┐
+  │ CLIENTS (collectivités)  →  clé API uniquement             │
+  │   - id_client, denomination, adresse_postale, api_key       │
+  │   - Périmètre : leurs propres prélèvements & résultats      │
+  ├─────────────────────────────────────────────────────────────┤
+  │ EXPERTS (analystes / responsable d'exploitation)           │
+  │   →  login technique (EXPERT_TOKEN dans env)               │
+  │   - Rôle ANALYSTE  : tous prélèvements, dashboards         │
+  │   - Rôle EXPLOIT   : supervision, métriques, logs, clés    │
+  └─────────────────────────────────────────────────────────────┘
 
 Tables :
-  - clients        : entités collectivités (pseudonymisées)
-  - prelevements   : fiches de prélèvement brutes
-  - mesures        : valeurs physico-chimiques normalisées
-  - predictions    : résultats du modèle ML
-  - api_keys       : clés API hashées par client
-  - audit_logs     : journal d'accès RGPD
-  - request_metrics: métriques de performance par route
+  clients          — comptes collectivités
+  prelevements     — fiches de prélèvement
+  mesures          — valeurs physico-chimiques
+  predictions      — résultats modèle ML
+  audit_logs       — journal accès RGPD (immuable)
+  request_metrics  — métriques performance par route
 """
 
 import os
@@ -54,94 +65,101 @@ class Base(DeclarativeBase):
 
 # ── Enums ───────────────────────────────────────────────────────────────────
 
-class ProfileEnum(str, enum.Enum):
-    ADMIN    = "admin"
-    ANALYSTE = "analyste"
-    TERRAIN  = "terrain"
-    READONLY = "readonly"
+class ExpertRole(str, enum.Enum):
+    """Rôles internes — ne concernent pas les clients."""
+    ANALYSTE = "analyste"   # accès données, dashboards, prédictions
+    EXPLOIT  = "exploit"    # supervision : métriques, logs, gestion clés
 
 
-class IngestionSourceEnum(str, enum.Enum):
-    MANUAL = "manual"
-    OCR    = "ocr"
-    API    = "api"
+class IngestionSource(str, enum.Enum):
+    MANUAL = "manual"   # saisie JSON directe
+    OCR    = "ocr"      # extraction fiche PDF/image
+    API    = "api"      # dépôt programmatique sans OCR
 
 
-# ── Tables ──────────────────────────────────────────────────────────────────
+# ── Clients (collectivités) ──────────────────────────────────────────────────
 
 class Client(Base):
     """
-    Collectivité ou agent déposant des prélèvements.
-    RGPD : nom stocké pseudonymisé, email hashé.
+    Compte d'une collectivité cliente.
+
+    Champs visibles / modifiables par les experts :
+      - id_client     : identifiant métier lisible (ex: COMM-042)
+      - denomination  : nom officiel de la structure
+      - adresse       : adresse postale complète
+      - actif         : désactivation sans suppression
+
+    Sécurité :
+      - La clé API brute n'est JAMAIS stockée : uniquement son hash SHA-256.
+      - key_hint (4 premiers chars) permet l'identification dans les logs.
+      - Une seule clé active à la fois par client (simplification MVP).
     """
     __tablename__ = "clients"
 
-    id             = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    code           = Column(String(64), unique=True, nullable=False, index=True)  # ex: COMM-042
-    nom_pseudo     = Column(String(128), nullable=True)       # pseudonyme libre
-    email_hash     = Column(String(64),  nullable=True)       # SHA-256 de l'email
-    profil         = Column(Enum(ProfileEnum), default=ProfileEnum.TERRAIN)
-    actif          = Column(Boolean, default=True)
-    created_at     = Column(DateTime, default=utcnow)
-    rgpd_consent   = Column(Boolean, default=False)           # consentement RGPD explicite
-    rgpd_consent_at= Column(DateTime, nullable=True)
-    anonymised_at  = Column(DateTime, nullable=True)          # date d'anonymisation RGPD
+    id            = Column(String(36),  primary_key=True,
+                           default=lambda: str(uuid.uuid4()))
+    id_client     = Column(String(64),  unique=True, nullable=False, index=True)
+    denomination  = Column(String(256), nullable=False)
+    adresse       = Column(Text,        nullable=False)
+    actif         = Column(Boolean,     default=True,  nullable=False)
+    created_at    = Column(DateTime,    default=utcnow)
+    created_by    = Column(String(64),  nullable=True)   # login expert créateur
 
-    api_keys       = relationship("ApiKey",      back_populates="client", cascade="all, delete-orphan")
-    prelevements   = relationship("Prelevement", back_populates="client")
+    # Clé API — une seule active par client
+    api_key_hash  = Column(String(64),  unique=True,  nullable=True, index=True)
+    api_key_hint  = Column(String(8),   nullable=True)
+    key_generated_at = Column(DateTime, nullable=True)
 
-    @staticmethod
-    def hash_email(email: str) -> str:
-        return hashlib.sha256(email.strip().lower().encode()).hexdigest()
+    # RGPD
+    rgpd_consent    = Column(Boolean,  default=False)
+    rgpd_consent_at = Column(DateTime, nullable=True)
+    anonymised_at   = Column(DateTime, nullable=True)
 
-
-class ApiKey(Base):
-    """
-    Clés API par client — stockées hashées, jamais en clair.
-    """
-    __tablename__ = "api_keys"
-
-    id         = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    client_id  = Column(String(36), ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
-    key_hash   = Column(String(64), unique=True, nullable=False, index=True)
-    hint       = Column(String(8),  nullable=False)   # 4 premiers chars pour identification
-    label      = Column(String(64), nullable=True)    # ex: "mobile-terrain-A"
-    actif      = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=utcnow)
-    expires_at = Column(DateTime, nullable=True)
-    last_used  = Column(DateTime, nullable=True)
-
-    client     = relationship("Client", back_populates="api_keys")
+    prelevements = relationship("Prelevement", back_populates="client",
+                                cascade="all, delete-orphan")
 
     @staticmethod
     def hash_key(raw_key: str) -> str:
         return hashlib.sha256(raw_key.encode()).hexdigest()
 
+    def set_api_key(self, raw_key: str) -> None:
+        """Hash et stocke une nouvelle clé — l'ancienne est révoquée."""
+        self.api_key_hash    = self.hash_key(raw_key)
+        self.api_key_hint    = raw_key[:4]
+        self.key_generated_at = utcnow()
+
+    def verify_key(self, raw_key: str) -> bool:
+        if not self.api_key_hash or not self.actif:
+            return False
+        candidate = self.hash_key(raw_key)
+        return hashlib.compare_digest(candidate, self.api_key_hash)
+
+
+# ── Prélèvements ─────────────────────────────────────────────────────────────
 
 class Prelevement(Base):
-    """
-    Fiche de prélèvement brute.
-    Liaison 1-N vers Mesure et Prediction.
-    """
+    """Fiche de prélèvement — liée à un client."""
     __tablename__ = "prelevements"
 
-    id              = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    client_id       = Column(String(36), ForeignKey("clients.id"), nullable=False, index=True)
-    date_prelevement= Column(DateTime, nullable=True)
-    lieu            = Column(String(256), nullable=True)
-    source          = Column(Enum(IngestionSourceEnum), default=IngestionSourceEnum.API)
-    fichier_nom     = Column(String(256), nullable=True)   # nom du fichier original
-    fichier_type    = Column(String(64),  nullable=True)   # MIME type
-    ocr_raw_text    = Column(Text, nullable=True)          # transcription brute OCR
-    ocr_warnings    = Column(Text, nullable=True)          # JSON array de warnings
-    observations    = Column(Text, nullable=True)
-    created_at      = Column(DateTime, default=utcnow)
+    id               = Column(String(36), primary_key=True,
+                               default=lambda: str(uuid.uuid4()))
+    client_id        = Column(String(36), ForeignKey("clients.id", ondelete="CASCADE"),
+                               nullable=False, index=True)
+    date_prelevement = Column(DateTime,  nullable=True)
+    lieu             = Column(String(256), nullable=True)
+    source           = Column(Enum(IngestionSource), default=IngestionSource.API)
+    fichier_nom      = Column(String(256), nullable=True)
+    fichier_type     = Column(String(64),  nullable=True)
+    ocr_raw_text     = Column(Text,        nullable=True)
+    ocr_warnings     = Column(Text,        nullable=True)   # JSON list
+    observations     = Column(Text,        nullable=True)
+    created_at       = Column(DateTime,    default=utcnow)
 
-    client          = relationship("Client",     back_populates="prelevements")
-    mesures         = relationship("Mesure",     back_populates="prelevement", uselist=False,
-                                   cascade="all, delete-orphan")
-    predictions     = relationship("Prediction", back_populates="prelevement",
-                                   cascade="all, delete-orphan")
+    client     = relationship("Client",     back_populates="prelevements")
+    mesures    = relationship("Mesure",     back_populates="prelevement",
+                               uselist=False, cascade="all, delete-orphan")
+    predictions = relationship("Prediction", back_populates="prelevement",
+                                cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("ix_prev_client_date", "client_id", "date_prelevement"),
@@ -149,25 +167,24 @@ class Prelevement(Base):
 
 
 class Mesure(Base):
-    """
-    Valeurs physico-chimiques normalisées d'un prélèvement.
-    """
+    """Valeurs physico-chimiques normalisées."""
     __tablename__ = "mesures"
 
-    id               = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    prelevement_id   = Column(String(36), ForeignKey("prelevements.id", ondelete="CASCADE"),
-                               nullable=False, unique=True, index=True)
-    ph               = Column(Float, nullable=True)
-    hardness         = Column(Float, nullable=True)
-    solids           = Column(Float, nullable=True)
-    chloramines      = Column(Float, nullable=True)
-    sulfate          = Column(Float, nullable=True)
-    conductivity     = Column(Float, nullable=True)
-    organic_carbon   = Column(Float, nullable=True)
-    trihalomethanes  = Column(Float, nullable=True)
-    turbidity        = Column(Float, nullable=True)
+    id              = Column(String(36), primary_key=True,
+                              default=lambda: str(uuid.uuid4()))
+    prelevement_id  = Column(String(36), ForeignKey("prelevements.id", ondelete="CASCADE"),
+                              nullable=False, unique=True, index=True)
+    ph              = Column(Float, nullable=True)
+    hardness        = Column(Float, nullable=True)
+    solids          = Column(Float, nullable=True)
+    chloramines     = Column(Float, nullable=True)
+    sulfate         = Column(Float, nullable=True)
+    conductivity    = Column(Float, nullable=True)
+    organic_carbon  = Column(Float, nullable=True)
+    trihalomethanes = Column(Float, nullable=True)
+    turbidity       = Column(Float, nullable=True)
 
-    prelevement      = relationship("Prelevement", back_populates="mesures")
+    prelevement = relationship("Prelevement", back_populates="mesures")
 
     def to_feature_dict(self) -> dict:
         return {
@@ -184,54 +201,59 @@ class Mesure(Base):
 
 
 class Prediction(Base):
-    """
-    Résultat du modèle ML pour un prélèvement.
-    Conserve la version du modèle pour traçabilité.
-    """
+    """Résultat du modèle ML — version tracée pour auditabilité."""
     __tablename__ = "predictions"
 
-    id             = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id             = Column(String(36), primary_key=True,
+                             default=lambda: str(uuid.uuid4()))
     prelevement_id = Column(String(36), ForeignKey("prelevements.id", ondelete="CASCADE"),
                              nullable=False, index=True)
-    potable        = Column(Integer,  nullable=False)      # 0 ou 1
-    probability    = Column(Float,    nullable=False)
-    model_version  = Column(String(64), nullable=True)     # ex: "WaterQualityXGBoost/1"
+    potable        = Column(Integer, nullable=False)        # 0 ou 1
+    probability    = Column(Float,   nullable=False)
+    model_version  = Column(String(64), nullable=True)
     created_at     = Column(DateTime, default=utcnow)
 
-    prelevement    = relationship("Prelevement", back_populates="predictions")
+    prelevement = relationship("Prelevement", back_populates="predictions")
 
+
+# ── Audit & Métriques ────────────────────────────────────────────────────────
 
 class AuditLog(Base):
     """
-    Journal d'accès RGPD — immuable.
-    Enregistre toutes les opérations sensibles sur les données.
+    Journal d'accès RGPD — immuable par convention.
+    actor_type : 'client' | 'expert'
+    actor_id   : id_client ou login expert
     """
     __tablename__ = "audit_logs"
 
-    id          = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    timestamp   = Column(DateTime, default=utcnow, index=True)
-    client_id   = Column(String(36), nullable=True, index=True)  # peut être null si clé inconnue
-    ip_address  = Column(String(45), nullable=True)              # IPv4 ou IPv6 (pseudonymisée)
-    action      = Column(String(64), nullable=False)             # ex: "predict", "ocr", "read_data"
-    resource_id = Column(String(36), nullable=True)              # ID de la ressource accédée
-    status_code = Column(Integer, nullable=True)
-    detail      = Column(Text, nullable=True)
+    id          = Column(String(36), primary_key=True,
+                          default=lambda: str(uuid.uuid4()))
+    timestamp   = Column(DateTime,  default=utcnow, index=True)
+    actor_type  = Column(String(16), nullable=False)     # 'client' | 'expert'
+    actor_id    = Column(String(64), nullable=True,  index=True)
+    actor_role  = Column(String(32), nullable=True)      # rôle expert ou 'client'
+    ip_address  = Column(String(45), nullable=True)      # pseudonymisée /24
+    action      = Column(String(64), nullable=False)
+    resource_id = Column(String(36), nullable=True)
+    status_code = Column(Integer,    nullable=True)
+    detail      = Column(Text,       nullable=True)
+
+    __table_args__ = (Index("ix_audit_actor", "actor_type", "actor_id"),)
 
 
 class RequestMetric(Base):
-    """
-    Métriques de performance par requête — pour monitoring responsable exploitation.
-    Agrégées périodiquement, les lignes brutes peuvent être purgées.
-    """
+    """Métriques de performance brutes — purgées périodiquement."""
     __tablename__ = "request_metrics"
 
-    id           = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    timestamp    = Column(DateTime, default=utcnow, index=True)
-    route        = Column(String(128), nullable=False, index=True)
-    method       = Column(String(8),   nullable=False)
-    status_code  = Column(Integer,     nullable=False)
-    duration_ms  = Column(Float,       nullable=False)
-    client_hint  = Column(String(8),   nullable=True)   # 4 chars de la clé pour regroupement
+    id          = Column(String(36), primary_key=True,
+                          default=lambda: str(uuid.uuid4()))
+    timestamp   = Column(DateTime,   default=utcnow, index=True)
+    route       = Column(String(128), nullable=False, index=True)
+    method      = Column(String(8),   nullable=False)
+    status_code = Column(Integer,     nullable=False)
+    duration_ms = Column(Float,       nullable=False)
+    actor_type  = Column(String(16),  nullable=True)   # 'client' | 'expert'
+    actor_hint  = Column(String(16),  nullable=True)   # key_hint ou login expert
 
 
 def init_db():
