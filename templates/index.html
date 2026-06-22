@@ -103,6 +103,14 @@
                     class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
                     🏛 Clients
                 </button>
+                <button onclick="showTab('cliDash')" data-tab="cliDash"
+                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                    📈 Par client
+                </button>
+                <button onclick="showTab('api')" data-tab="api"
+                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                    🔌 API
+                </button>
             </nav>
             <div class="flex items-center gap-3 shrink-0">
                 <div class="flex items-center gap-1.5">
@@ -297,6 +305,104 @@
                     </div>
                 </div>
             </div>
+            <!-- Tab: Dashboard par client -->
+            <div id="tab-cliDash" class="hidden fade-in">
+                <div class="grid grid-cols-4 gap-4 h-full" style="min-height:70vh">
+
+                    <!-- Liste clients -->
+                    <div class="col-span-1 bg-slate-800 border border-slate-700 rounded-2xl flex flex-col overflow-hidden">
+                        <div class="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+                            <span class="text-sm font-semibold text-white">Clients</span>
+                            <button onclick="loadCliDashList()" class="text-xs text-blue-400 hover:underline">↺</button>
+                        </div>
+                        <input id="cd-search" type="text" placeholder="Rechercher…"
+                            oninput="filterCliList(this.value)"
+                            class="mx-3 mt-3 mb-2 bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors">
+                        <div id="cd-list" class="flex-1 overflow-y-auto"></div>
+                    </div>
+
+                    <!-- Dashboard individuel -->
+                    <div class="col-span-3 space-y-4">
+                        <!-- Placeholder vide -->
+                        <div id="cd-empty" class="h-full flex items-center justify-center">
+                            <div class="text-center text-slate-600">
+                                <div class="text-5xl mb-3">👈</div>
+                                <p class="text-sm">Sélectionnez un client pour voir son dashboard</p>
+                            </div>
+                        </div>
+
+                        <!-- Contenu client sélectionné -->
+                        <div id="cd-content" class="hidden space-y-4">
+                            <!-- En-tête client -->
+                            <div class="bg-slate-800 border border-slate-700 rounded-2xl px-6 py-4 flex items-center gap-4">
+                                <div id="cd-avatar" class="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg bg-blue-900/60 text-blue-300 shrink-0"></div>
+                                <div class="flex-1 min-w-0">
+                                    <p id="cd-name" class="font-semibold text-white text-lg"></p>
+                                    <p id="cd-meta" class="text-xs text-slate-500"></p>
+                                </div>
+                                <span id="cd-status" class="text-xs px-2.5 py-1 rounded-full font-medium shrink-0"></span>
+                            </div>
+
+                            <!-- KPIs -->
+                            <div class="grid grid-cols-4 gap-3">
+                                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4">
+                                    <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Total</p>
+                                    <p class="text-2xl font-bold text-white" id="cd-kpi-tot">—</p>
+                                </div>
+                                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4">
+                                    <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Potables</p>
+                                    <p class="text-2xl font-bold text-green-400" id="cd-kpi-pot">—</p>
+                                </div>
+                                <div class="bg-slate-800 border border-slate-700 uppercase tracking-wide rounded-2xl p-4">
+                                    <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Non potables</p>
+                                    <p class="text-2xl font-bold text-red-400" id="cd-kpi-npot">—</p>
+                                </div>
+                                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4">
+                                    <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Taux</p>
+                                    <p class="text-2xl font-bold text-blue-400" id="cd-kpi-rate">—</p>
+                                </div>
+                            </div>
+
+                            <!-- Barre de potabilité -->
+                            <div class="bg-slate-800 border border-slate-700 rounded-2xl px-6 py-4">
+                                <div class="flex justify-between text-xs text-slate-500 mb-2">
+                                    <span>Répartition potabilité</span>
+                                    <span id="cd-bar-label"></span>
+                                </div>
+                                <div class="h-3 rounded-full bg-slate-700 overflow-hidden">
+                                    <div id="cd-bar" class="h-full rounded-full bg-green-500 transition-all duration-700" style="width:0%"></div>
+                                </div>
+                            </div>
+
+                            <!-- Sources + Prélèvements récents -->
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
+                                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Sources</p>
+                                    <div id="cd-sources" class="space-y-2"></div>
+                                </div>
+                                <div class="col-span-2 bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden">
+                                    <div class="px-5 py-3 border-b border-slate-700 flex items-center justify-between">
+                                        <span class="text-sm font-semibold text-white">Derniers prélèvements</span>
+                                    </div>
+                                    <div id="cd-prevs"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: API Explorer -->
+            <div id="tab-api" class="hidden fade-in">
+                <div class="flex items-center gap-3 mb-5">
+                    <input id="api-search" type="text" placeholder="Filtrer les routes…"
+                        oninput="filterApiRoutes(this.value)"
+                        class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors">
+                    <span id="api-spec-ver" class="text-xs text-slate-600 shrink-0"></span>
+                </div>
+                <div id="api-endpoints" class="space-y-6"></div>
+            </div>
+
         </div>
     </main>
 </div>
@@ -425,7 +531,7 @@ function showApp() {
 }
 
 function showTab(tab) {
-    ['dash', 'prevs', 'clis'].forEach(t => document.getElementById(`tab-${t}`)?.classList.add('hidden'));
+    ['dash', 'prevs', 'clis', 'cliDash', 'api'].forEach(t => document.getElementById(`tab-${t}`)?.classList.add('hidden'));
     document.getElementById(`tab-${tab}`)?.classList.remove('hidden');
     document.querySelectorAll('.tab-btn').forEach(b => {
         const active = b.dataset.tab === tab;
@@ -436,6 +542,8 @@ function showTab(tab) {
     if (tab === 'dash')  loadDashboard();
     if (tab === 'prevs') loadAllPrevs();
     if (tab === 'clis')  loadClients();
+    if (tab === 'cliDash') loadCliDashList();
+    if (tab === 'api' && !_apiSpec) loadApiExplorer();
 }
 
 // ════════════════════════════════════════
@@ -455,6 +563,13 @@ async function pingHealth() {
 // ════════════════════════════════════════
 // SHARED UI HELPERS
 // ════════════════════════════════════════
+function sourceBadge(src) {
+    if (!src) return '<span class="text-slate-600 text-xs">—</span>';
+    const label = src === 'manual' ? 'Saisie' : src === 'ocr' ? 'OCR' : src;
+    const cls   = src === 'ocr' ? 'bg-violet-900/50 text-violet-300' : 'bg-slate-700 text-slate-400';
+    return `<span class="text-xs px-2 py-0.5 rounded-full ${cls}">${label}</span>`;
+}
+
 function potBadge(potable) {
     if (potable == null) return '<span class="text-slate-600 text-xs">—</span>';
     const ok = potable === 1;
@@ -490,7 +605,7 @@ function prevTable(items, withClient) {
                 ${withClient ? `<td class="px-6 py-3 font-medium text-slate-300">${p.client_id || '—'}</td>` : ''}
                 <td class="px-6 py-3 text-slate-400">${fdate(p.date_prelevement || p.created_at)}</td>
                 <td class="px-6 py-3 text-slate-300">${p.lieu || '—'}</td>
-                <td class="px-6 py-3"><span class="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">${p.source || '—'}</span></td>
+                <td class="px-6 py-3">${sourceBadge(p.source)}</td>
                 <td class="px-6 py-3">${potBadge(pred?.potable)}</td>
                 <td class="px-6 py-3 text-slate-400">${pred ? `${(pred.probability * 100).toFixed(1)}%` : '—'}</td>
             </tr>`;
@@ -787,6 +902,322 @@ function closeModal() { document.getElementById('modal').classList.add('hidden')
 document.getElementById('modal').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeModal();
 });
+
+// ════════════════════════════════════════
+// DASHBOARD PAR CLIENT
+// ════════════════════════════════════════
+let _cdClients = [];
+let _cdSelected = null;
+
+async function loadCliDashList() {
+    const el = document.getElementById('cd-list');
+    el.innerHTML = spinnerHtml();
+    try {
+        _cdClients = await api('GET', '/admin/clients');
+        renderCliList(_cdClients);
+        // Re-sélectionner le client courant si présent
+        if (_cdSelected) selectClient(_cdSelected.id);
+    } catch(e) {
+        el.innerHTML = '<p class="text-red-400 text-xs text-center py-6">Erreur.</p>';
+    }
+}
+
+function renderCliList(clients) {
+    const el = document.getElementById('cd-list');
+    if (!clients.length) {
+        el.innerHTML = '<p class="text-slate-500 text-xs text-center py-6">Aucun client.</p>';
+        return;
+    }
+    el.innerHTML = clients.map(c => `
+        <div class="cd-cli-row px-4 py-3 cursor-pointer border-b border-slate-700/40 last:border-0 hover:bg-slate-700/40 transition-colors flex items-center gap-3"
+             data-id="${c.id}" data-label="${c.denomination}"
+             onclick="selectClient('${c.id}')">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0
+                ${c.actif ? 'bg-blue-900/60 text-blue-300' : 'bg-slate-700 text-slate-500'}">
+                ${(c.denomination||'?')[0].toUpperCase()}
+            </div>
+            <div class="min-w-0 flex-1">
+                <p class="text-sm text-slate-200 font-medium truncate">${c.denomination}</p>
+                <p class="text-[10px] text-slate-500">${c.id_client} · ${c.nb_prelevements} prélt.</p>
+            </div>
+            <span class="w-2 h-2 rounded-full shrink-0 ${c.actif ? 'bg-green-500' : 'bg-slate-600'}"></span>
+        </div>`).join('');
+}
+
+function filterCliList(q) {
+    const lq = q.toLowerCase();
+    document.querySelectorAll('.cd-cli-row').forEach(row => {
+        const match = !lq || row.textContent.toLowerCase().includes(lq);
+        row.style.display = match ? '' : 'none';
+    });
+}
+
+async function selectClient(clientDbId) {
+    // Highlight sélection
+    document.querySelectorAll('.cd-cli-row').forEach(r => {
+        const sel = r.dataset.id === clientDbId;
+        r.classList.toggle('bg-slate-700/60', sel);
+        r.classList.toggle('border-l-2',      sel);
+        r.classList.toggle('border-blue-500', sel);
+    });
+
+    document.getElementById('cd-empty').classList.add('hidden');
+    document.getElementById('cd-content').classList.remove('hidden');
+
+    // Spinner dans les zones de données
+    ['cd-kpi-tot','cd-kpi-pot','cd-kpi-npot','cd-kpi-rate'].forEach(id => {
+        document.getElementById(id).textContent = '…';
+    });
+    document.getElementById('cd-prevs').innerHTML = spinnerHtml();
+    document.getElementById('cd-sources').innerHTML = '';
+
+    // Infos du client depuis le cache
+    const cli = _cdClients.find(c => c.id === clientDbId);
+    _cdSelected = cli;
+    if (cli) {
+        document.getElementById('cd-avatar').textContent = (cli.denomination||'?')[0].toUpperCase();
+        document.getElementById('cd-name').textContent   = cli.denomination;
+        document.getElementById('cd-meta').textContent   = `${cli.id_client} · ${cli.adresse || ''}`;
+        const statusEl = document.getElementById('cd-status');
+        statusEl.textContent = cli.actif ? 'Actif' : 'Inactif';
+        statusEl.className = `text-xs px-2.5 py-1 rounded-full font-medium shrink-0 ${
+            cli.actif ? 'bg-green-900/50 text-green-400' : 'bg-slate-700 text-slate-500'}`;
+    }
+
+    // Charger les prélèvements du client (la route attend l'id_client métier, pas l'id DB)
+    const idMetier = cli?.id_client || clientDbId;
+    try {
+        const d = await api('GET', `/analyste/clients/${encodeURIComponent(idMetier)}/prelevements?per_page=100`);
+        const items = d.items || d || [];
+
+        const total = items.length;
+        const potables   = items.filter(p => p.prediction?.potable === 1).length;
+        const nonPot     = items.filter(p => p.prediction?.potable === 0).length;
+        const rate       = total > 0 ? (potables / total * 100).toFixed(1) : null;
+
+        document.getElementById('cd-kpi-tot').textContent  = total;
+        document.getElementById('cd-kpi-pot').textContent  = potables;
+        document.getElementById('cd-kpi-npot').textContent = nonPot;
+        document.getElementById('cd-kpi-rate').textContent = rate != null ? `${rate}%` : '—';
+
+        // Barre
+        const pct = rate ?? 0;
+        document.getElementById('cd-bar').style.width = `${pct}%`;
+        document.getElementById('cd-bar').className   = `h-full rounded-full transition-all duration-700 ${
+            pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-red-500'}`;
+        document.getElementById('cd-bar-label').textContent = `${potables} potables / ${nonPot} non potables`;
+
+        // Sources
+        const bySource = {};
+        items.forEach(p => { bySource[p.source||'?'] = (bySource[p.source||'?']||0) + 1; });
+        document.getElementById('cd-sources').innerHTML = Object.entries(bySource).map(([src, n]) => `
+            <div class="flex items-center justify-between">
+                ${sourceBadge(src)}
+                <span class="text-sm font-semibold text-slate-200">${n}</span>
+            </div>`).join('') || '<p class="text-slate-600 text-xs">—</p>';
+
+        // Prélèvements récents (5 derniers)
+        const recent = [...items].sort((a,b) =>
+            new Date(b.date_prelevement||b.created_at) - new Date(a.date_prelevement||a.created_at)
+        ).slice(0, 8);
+        document.getElementById('cd-prevs').innerHTML = prevTable(recent, false);
+
+    } catch(e) {
+        const msg = e?.error || e?.message || JSON.stringify(e) || 'Erreur inconnue';
+        document.getElementById('cd-prevs').innerHTML = `<p class="text-red-400 text-xs text-center py-6">${msg}</p>`;
+        document.getElementById('cd-sources').innerHTML = '<p class="text-red-400 text-xs">—</p>';
+    }
+}
+
+// ════════════════════════════════════════
+// API EXPLORER
+// ════════════════════════════════════════
+let _apiSpec = null;
+
+async function loadApiExplorer() {
+    const el = document.getElementById('api-endpoints');
+    el.innerHTML = spinnerHtml();
+    try {
+        const r = await fetch('/apispec.json');
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        _apiSpec = await r.json();
+        const ver = _apiSpec.info?.version || '';
+        document.getElementById('api-spec-ver').textContent = ver ? `v${ver}` : '';
+        renderApiExplorer(_apiSpec);
+    } catch(e) {
+        el.innerHTML = `<p class="text-red-400 text-sm text-center py-8">Impossible de charger la spécification API (${e.message}).</p>`;
+    }
+}
+
+function renderApiExplorer(spec) {
+    const paths = spec.paths || {};
+    const groups = {};
+    for (const [path, methods] of Object.entries(paths)) {
+        for (const [method, op] of Object.entries(methods)) {
+            if (!['get','post','put','delete','patch'].includes(method)) continue;
+            const tag = op.tags?.[0] || 'Général';
+            (groups[tag] = groups[tag] || []).push({ path, method, op });
+        }
+    }
+    const ORDER = ['client','analyste','exploit','admin','général'];
+    const sorted = Object.entries(groups).sort(([a],[b]) => {
+        const ia = ORDER.findIndex(x => a.toLowerCase().includes(x));
+        const ib = ORDER.findIndex(x => b.toLowerCase().includes(x));
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+    document.getElementById('api-endpoints').innerHTML = sorted.map(([tag, eps]) => `
+        <div class="api-group">
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">${tag}</p>
+            <div class="space-y-1.5">${eps.map(ep => renderEndpointCard(ep, spec)).join('')}</div>
+        </div>`).join('') || '<p class="text-slate-500 text-center py-10 text-sm">Aucun endpoint.</p>';
+}
+
+const _MC = { get:'bg-blue-600', post:'bg-emerald-600', put:'bg-orange-500', delete:'bg-red-600', patch:'bg-yellow-600' };
+
+function renderEndpointCard({ path, method, op }, spec) {
+    const id = `ep_${method}_${path}`.replace(/[^a-z0-9]/gi,'_');
+    const params  = op.parameters || [];
+    const pathPs  = params.filter(p => p.in === 'path');
+    const queryPs = params.filter(p => p.in === 'query');
+    const bodyP   = params.find(p  => p.in === 'body');
+    let defaultBody = '';
+    if (bodyP?.schema) {
+        try { defaultBody = JSON.stringify(_schemaDef(bodyP.schema, spec), null, 2); } catch(_) {}
+    }
+    return `
+    <div class="api-card bg-slate-800 border border-slate-700 rounded-xl overflow-hidden" id="${id}">
+        <div onclick="toggleApiEp('${id}')" class="px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-slate-700/40 transition-colors select-none">
+            <span class="shrink-0 text-[10px] font-bold font-mono uppercase text-white text-center w-16 py-0.5 rounded ${_MC[method]||'bg-slate-600'}">${method}</span>
+            <span class="font-mono text-sm text-slate-200 flex-1 truncate">${path}</span>
+            <span class="text-slate-500 text-xs hidden md:block shrink-0 truncate max-w-xs">${op.summary||''}</span>
+            <span class="text-slate-600 text-xs shrink-0" id="${id}__arr">▼</span>
+        </div>
+        <div id="${id}__body" class="hidden border-t border-slate-700 p-5 space-y-4">
+            ${op.description ? `<p class="text-slate-400 text-sm">${op.description}</p>` : ''}
+            ${pathPs.length ? `
+            <div>
+                <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Paramètres de chemin</p>
+                <div class="space-y-2">${pathPs.map(p => `
+                    <div class="flex items-center gap-3">
+                        <label class="font-mono text-xs text-yellow-300 w-32 shrink-0">{${p.name}}</label>
+                        <input id="${id}__pp__${p.name}" type="text" placeholder="${p.description||p.name}"
+                            class="flex-1 bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 font-mono transition-colors">
+                    </div>`).join('')}
+                </div>
+            </div>` : ''}
+            ${queryPs.length ? `
+            <div>
+                <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Paramètres de requête</p>
+                <div class="grid grid-cols-2 gap-2">${queryPs.map(p => `
+                    <div>
+                        <label class="text-[10px] font-mono text-slate-500 block mb-1">${p.name}${p.required?' <span class="text-red-400">*</span>':''}</label>
+                        <input id="${id}__qp__${p.name}" type="text" placeholder="${p.description||''}"
+                            class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 font-mono transition-colors">
+                    </div>`).join('')}
+                </div>
+            </div>` : ''}
+            ${bodyP ? `
+            <div>
+                <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Corps JSON</p>
+                <textarea id="${id}__bj" rows="7" spellcheck="false"
+                    class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-green-300 font-mono focus:outline-none focus:border-blue-500 resize-y transition-colors">${defaultBody}</textarea>
+            </div>` : ''}
+            <div class="flex items-center gap-3 pt-1">
+                <button onclick="tryApiEp('${id}','${method}','${path}')"
+                    class="bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-lg px-5 py-2 text-sm font-semibold transition-colors">
+                    ▶ Envoyer
+                </button>
+                <span class="text-xs text-slate-600">Auth injectée depuis la session</span>
+            </div>
+            <div id="${id}__res" class="hidden"></div>
+        </div>
+    </div>`;
+}
+
+function _schemaDef(schema, spec) {
+    if (schema.$ref) {
+        const parts = schema.$ref.replace('#/','').split('/');
+        let node = spec;
+        for (const p of parts) node = node?.[p];
+        schema = node || {};
+    }
+    if (schema.example != null) return schema.example;
+    if (schema.type === 'object' && schema.properties) {
+        const obj = {};
+        for (const [k, v] of Object.entries(schema.properties)) {
+            obj[k] = v.example ?? (v.type === 'number' || v.type === 'integer' ? 0 : v.type === 'boolean' ? false : '');
+        }
+        return obj;
+    }
+    return {};
+}
+
+function toggleApiEp(id) {
+    const body  = document.getElementById(`${id}__body`);
+    const arrow = document.getElementById(`${id}__arr`);
+    const open  = !body.classList.contains('hidden');
+    body.classList.toggle('hidden', open);
+    arrow.textContent = open ? '▼' : '▲';
+}
+
+async function tryApiEp(id, method, pathTpl) {
+    const resEl = document.getElementById(`${id}__res`);
+    resEl.classList.remove('hidden');
+    resEl.innerHTML = spinnerHtml();
+
+    let url = pathTpl.replace(/{(\w+)}/g, (_, name) => {
+        const v = document.getElementById(`${id}__pp__${name}`)?.value?.trim();
+        return v ? encodeURIComponent(v) : `{${name}}`;
+    });
+    const qp = new URLSearchParams();
+    document.querySelectorAll(`[id^="${id}__qp__"]`).forEach(el => {
+        const name = el.id.replace(`${id}__qp__`, '');
+        if (el.value.trim()) qp.set(name, el.value.trim());
+    });
+    if ([...qp].length) url += '?' + qp;
+
+    const hdrs = {};
+    if (S.type === 'client') hdrs['X-API-Key'] = S.key;
+    if (S.type === 'expert') hdrs['Authorization'] = `Bearer ${S.key}`;
+
+    const bodyEl = document.getElementById(`${id}__bj`);
+    let bodyStr = null;
+    if (bodyEl?.value?.trim()) {
+        hdrs['Content-Type'] = 'application/json';
+        bodyStr = bodyEl.value.trim();
+    }
+
+    const t0 = Date.now();
+    try {
+        const r = await fetch(url, { method: method.toUpperCase(), headers: hdrs, body: bodyStr ?? undefined });
+        const ms = Date.now() - t0;
+        const text = await r.text();
+        let pretty = text;
+        try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch(_) {}
+        const sc = r.status < 300 ? 'text-green-400' : r.status < 500 ? 'text-yellow-400' : 'text-red-400';
+        resEl.innerHTML = `
+            <div class="flex items-center gap-3 mb-2 pt-1">
+                <span class="font-mono font-bold text-sm ${sc}">${r.status} ${r.statusText}</span>
+                <span class="text-xs text-slate-500">${ms} ms</span>
+            </div>
+            <pre class="bg-[#0f172a] border border-slate-700 rounded-lg p-4 text-xs text-slate-300 font-mono overflow-x-auto max-h-72 overflow-y-auto">${_esc(pretty)}</pre>`;
+    } catch(e) {
+        resEl.innerHTML = `<p class="text-red-400 text-sm py-2">Erreur réseau : ${e.message}</p>`;
+    }
+}
+
+function _esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function filterApiRoutes(q) {
+    const lq = q.toLowerCase();
+    document.querySelectorAll('.api-card').forEach(card => {
+        card.style.display = (!lq || card.textContent.toLowerCase().includes(lq)) ? '' : 'none';
+    });
+    document.querySelectorAll('.api-group').forEach(g => {
+        const vis = [...g.querySelectorAll('.api-card')].some(c => c.style.display !== 'none');
+        g.style.display = vis ? '' : 'none';
+    });
+}
 
 // ════════════════════════════════════════
 // INIT
