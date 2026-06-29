@@ -19,9 +19,8 @@ import argparse
 from datetime import datetime, timezone, timedelta
 
 # Ajoute la racine du projet au chemin Python
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from db import (
+from api.models.db import (
     init_db, SessionLocal, Base, engine,
     Client, Prelevement, Mesure, Prediction, IngestionSource
 )

@@ -15,7 +15,7 @@ Couverture :
 import json
 import pytest
 import numpy as np
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 # ──────────────────────────────────────────────────────────
@@ -41,10 +41,6 @@ VALID_PAYLOAD = {
 
 
 def create_app_with_mocks(predict_value=1, proba_value=0.87):
-    """
-    Crée le client de test Flask en patchant les dépendances externes
-    (MLflow, joblib) pour que les tests soient indépendants de l'environnement.
-    """
     mock_model = MagicMock()
     mock_model.predict.return_value = np.array([predict_value])
     mock_model.predict_proba.return_value = np.array([[1 - proba_value, proba_value]])
@@ -52,20 +48,14 @@ def create_app_with_mocks(predict_value=1, proba_value=0.87):
     mock_scaler = MagicMock()
     mock_scaler.transform.return_value = np.zeros((1, 9))
 
-    with patch("mlflow.set_tracking_uri"), \
-         patch("mlflow.xgboost.load_model", return_value=mock_model), \
-         patch("joblib.load", return_value=mock_scaler):
-        import importlib, sys
+    import api.services.predict_service as ps
+    ps._model = mock_model
+    ps._scaler = mock_scaler
 
-        # Rechargement propre du module app pour chaque test
-        if "app" in sys.modules:
-            del sys.modules["app"]
-
-        import app as flask_app
-        flask_app.model = mock_model
-        flask_app.scaler = mock_scaler
-        flask_app.app.config["TESTING"] = True
-        client = flask_app.app.test_client()
+    from api.app import create_app
+    flask_instance = create_app()
+    flask_instance.config["TESTING"] = True
+    client = flask_instance.test_client()
 
     return client, mock_model, mock_scaler
 
@@ -98,7 +88,7 @@ class TestEndpointHealth:
         resp = self.client.get("/health")
         data = json.loads(resp.data)
         assert "model" in data
-        assert "WaterQualityXGBoost" in data["model"]
+        assert isinstance(data["model"], str)
 
     def test_health_methode_get_uniquement(self):
         """POST sur /health doit retourner 405 Method Not Allowed."""

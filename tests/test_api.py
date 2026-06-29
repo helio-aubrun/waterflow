@@ -22,8 +22,8 @@ os.environ.setdefault("MLFLOW_URI",        "mock")
 os.environ.setdefault("SCALER_PATH",       "mock")
 os.environ.setdefault("OCR_SPACE_API_KEY", "")
 os.environ.setdefault("ANTHROPIC_API_KEY", "")
-# Deux experts de test : un analyste, un exploit
-os.environ["EXPERT_TOKENS"] = "alice:token-alice:analyste,bob:token-bob:exploit"
+# Deux experts de test : un analyste, un exploit (conftest.py inclut aussi admin-e2e)
+os.environ.setdefault("EXPERT_TOKENS", "alice:token-alice:analyste,bob:token-bob:exploit")
 
 # ── Mocks ML ────────────────────────────────────────────────────────────────
 _mock_model  = MagicMock()
@@ -38,6 +38,10 @@ with patch("mlflow.xgboost.load_model", return_value=_mock_model), \
      patch("mlflow.set_tracking_uri"):
     from api.app        import create_app
     from api.models.db  import init_db, SessionLocal, Client
+
+import api.services.predict_service as _ps
+_ps._model  = _mock_model
+_ps._scaler = _mock_scaler
 
 # ── Constantes ───────────────────────────────────────────────────────────────
 ALICE_HEADER  = {"Authorization": "Bearer token-alice"}   # analyste

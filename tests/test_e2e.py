@@ -24,7 +24,7 @@ os.environ.setdefault("MLFLOW_URI",        "mock")
 os.environ.setdefault("SCALER_PATH",       "mock")
 os.environ.setdefault("OCR_SPACE_API_KEY", "")
 os.environ.setdefault("ANTHROPIC_API_KEY", "")
-os.environ["EXPERT_TOKENS"] = "admin:token-admin-e2e:exploit"
+os.environ.setdefault("EXPERT_TOKENS", "admin:token-admin-e2e:exploit")
 
 # ── OCR simulé — résultat d'une fiche labo correctement extraite ─────────────
 MOCK_OCR_RESULT = {
@@ -62,15 +62,15 @@ ADMIN_HEADER = {"Authorization": "Bearer token-admin-e2e"}
 
 @pytest.fixture(scope="module")
 def app():
-    with patch("mlflow.xgboost.load_model", return_value=_mock_model), \
-         patch("joblib.load",               return_value=_mock_scaler), \
-         patch("mlflow.set_tracking_uri"):
-        from api.app       import create_app
-        from api.models.db import init_db
-        application = create_app()
-        application.config["TESTING"] = True
-        init_db()
-        return application
+    from api.app       import create_app
+    from api.models.db import init_db
+    import api.services.predict_service as ps
+    ps._model  = _mock_model
+    ps._scaler = _mock_scaler
+    application = create_app()
+    application.config["TESTING"] = True
+    init_db()
+    return application
 
 
 @pytest.fixture(scope="module")
@@ -111,7 +111,7 @@ class TestE2EPipelineOcrPredict:
     def patch_ocr(self):
         """Remplace l'appel OCR réel par le résultat simulé."""
         with patch(
-            "api.services.ocr_service.extract_from_document",
+            "api.routes.routes.extract_from_document",
             return_value=MOCK_OCR_RESULT,
         ):
             yield
@@ -225,11 +225,11 @@ class TestE2EPipelineOcrPredict:
         """Si l'OCR ne retourne pas toutes les mesures, prediction_possible=False."""
         ocr_partiel = {**MOCK_OCR_RESULT, "mesures": {"ph": 7.0}}  # mesures incomplètes
         with patch(
-            "api.services.ocr_service.extract_from_document",
+            "api.routes.routes.extract_from_document",
             return_value=ocr_partiel,
         ):
             r = http.post(
-                "/ingest/ocr",
+                "/ingest/ocr-and-predict",
                 data={"file": (self._fake_pdf(), "fiche_labo.pdf", "application/pdf")},
                 content_type="multipart/form-data",
                 headers=client_header,

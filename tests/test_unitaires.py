@@ -245,7 +245,7 @@ class TestDataset:
     def df(self):
         # Chemin relatif à la racine du projet
         root = os.path.dirname(os.path.dirname(__file__))
-        return pd.read_csv(os.path.join(root, "water_potability.csv"))
+        return pd.read_csv(os.path.join(root, "data", "water_potability.csv"))
 
     def test_colonnes_attendues(self, df):
         """Le dataset doit contenir les 9 features + la cible."""

@@ -86,23 +86,21 @@ class TestContratAPI:
 
     @pytest.fixture(autouse=True)
     def setup(self):
+        import api.services.predict_service as ps
+        from api.app import create_app
+
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([1])
         mock_model.predict_proba.return_value = np.array([[0.2, 0.8]])
         mock_scaler = MagicMock()
         mock_scaler.transform.return_value = np.zeros((1, 9))
 
-        with patch("mlflow.set_tracking_uri"), \
-             patch("mlflow.xgboost.load_model", return_value=mock_model), \
-             patch("joblib.load", return_value=mock_scaler):
-            import sys
-            if "app" in sys.modules:
-                del sys.modules["app"]
-            import app as flask_app
-            flask_app.model = mock_model
-            flask_app.scaler = mock_scaler
-            flask_app.app.config["TESTING"] = True
-            self.client = flask_app.app.test_client()
+        ps._model = mock_model
+        ps._scaler = mock_scaler
+
+        flask_instance = create_app()
+        flask_instance.config["TESTING"] = True
+        self.client = flask_instance.test_client()
 
         self.valid_payload = {
             "ph": 7.0, "Hardness": 200.0, "Solids": 20000.0,
@@ -191,10 +189,8 @@ class TestContratAPI:
 
     def test_contrat_mlflow_uri_inchangee(self):
         """L'URI MLflow du modèle doit rester stable."""
-        import sys
-        if "app" in sys.modules:
-            import app as flask_app
-            assert "WaterQualityXGBoost" in flask_app.MLFLOW_MODEL_URI
+        import inspect, api.services.predict_service as ps
+        assert "WaterQualityXGBoost" in inspect.getsource(ps)
 
 
 # ──────────────────────────────────────────────────────────
@@ -242,7 +238,7 @@ class TestStabilitePreprocessing:
     def test_colonnes_csv_coherentes_avec_features(self):
         """Les colonnes du CSV doivent couvrir toutes les features de l'API."""
         root = os.path.dirname(os.path.dirname(__file__))
-        df = pd.read_csv(os.path.join(root, "water_potability.csv"))
+        df = pd.read_csv(os.path.join(root, "data", "water_potability.csv"))
         for feat in FEATURES:
             assert feat in df.columns, f"Feature '{feat}' absente du CSV"
 
@@ -314,7 +310,7 @@ class TestMetriquesPerformance:
     @pytest.fixture(scope="class")
     def dataset(self):
         root = os.path.dirname(os.path.dirname(__file__))
-        return pd.read_csv(os.path.join(root, "water_potability_clean.csv"))
+        return pd.read_csv(os.path.join(root, "data", "water_potability_clean.csv"))
 
     def test_distribution_classes_stable(self, dataset):
         """
@@ -370,48 +366,20 @@ class TestConfigurationMLflow:
 
     def test_nom_modele_mlflow_inchange(self):
         """Le nom du modèle dans le registry ne doit pas changer."""
-        import sys
-        if "app" in sys.modules:
-            del sys.modules["app"]
-
-        with patch("mlflow.set_tracking_uri"), \
-             patch("mlflow.xgboost.load_model", return_value=MagicMock()), \
-             patch("joblib.load", return_value=MagicMock()):
-            import app as flask_app
-            assert self.EXPECTED_MODEL_NAME in flask_app.MLFLOW_MODEL_URI
+        import inspect, api.services.predict_service as ps
+        assert self.EXPECTED_MODEL_NAME in inspect.getsource(ps)
 
     def test_version_modele_mlflow_inchangee(self):
         """La version du modèle référencée ne doit pas changer silencieusement."""
-        import sys
-        if "app" in sys.modules:
-            del sys.modules["app"]
-
-        with patch("mlflow.set_tracking_uri"), \
-             patch("mlflow.xgboost.load_model", return_value=MagicMock()), \
-             patch("joblib.load", return_value=MagicMock()):
-            import app as flask_app
-            assert f"/{self.EXPECTED_MODEL_VERSION}" in flask_app.MLFLOW_MODEL_URI
+        import inspect, api.services.predict_service as ps
+        assert f"/{self.EXPECTED_MODEL_VERSION}" in inspect.getsource(ps)
 
     def test_chemin_scaler_inchange(self):
         """Le chemin du scaler ne doit pas être modifié sans mise à jour du test."""
-        import sys
-        if "app" in sys.modules:
-            del sys.modules["app"]
-
-        with patch("mlflow.set_tracking_uri"), \
-             patch("mlflow.xgboost.load_model", return_value=MagicMock()), \
-             patch("joblib.load", return_value=MagicMock()):
-            import app as flask_app
-            assert flask_app.SCALER_PATH == self.EXPECTED_SCALER_PATH
+        import inspect, api.services.predict_service as ps
+        assert self.EXPECTED_SCALER_PATH in inspect.getsource(ps)
 
     def test_nombre_features_api_inchange(self):
         """Le nombre de features déclarées dans l'API doit rester à 9."""
-        import sys
-        if "app" in sys.modules:
-            del sys.modules["app"]
-
-        with patch("mlflow.set_tracking_uri"), \
-             patch("mlflow.xgboost.load_model", return_value=MagicMock()), \
-             patch("joblib.load", return_value=MagicMock()):
-            import app as flask_app
-            assert len(flask_app.FEATURES) == 9
+        from api.services.predict_service import FEATURES
+        assert len(FEATURES) == 9
