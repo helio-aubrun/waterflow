@@ -111,6 +111,10 @@
                     class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
                     🔌 API
                 </button>
+                <button onclick="showTab('monitor')" data-tab="monitor"
+                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                    🩺 Monitoring
+                </button>
             </nav>
             <div class="flex items-center gap-3 shrink-0">
                 <div class="flex items-center gap-1.5">
@@ -392,6 +396,28 @@
                 </div>
             </div>
 
+            <!-- Tab: Monitoring -->
+            <div id="tab-monitor" class="hidden fade-in">
+                <div class="flex items-center justify-between mb-5">
+                    <h2 class="font-bold text-white text-lg">Monitoring du modèle ML</h2>
+                    <div class="flex items-center gap-3">
+                        <select id="mon-window" onchange="loadMonitoring()"
+                            class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none">
+                            <option value="7">7 derniers jours</option>
+                            <option value="30" selected>30 derniers jours</option>
+                            <option value="90">90 derniers jours</option>
+                        </select>
+                        <button onclick="loadMonitoring()"
+                            class="bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl px-4 py-2 text-sm font-medium transition-colors">
+                            Actualiser
+                        </button>
+                    </div>
+                </div>
+                <div id="mon-content">
+                    <p class="text-slate-500 text-sm">Chargement…</p>
+                </div>
+            </div>
+
             <!-- Tab: API Explorer -->
             <div id="tab-api" class="hidden fade-in">
                 <div class="flex items-center gap-3 mb-5">
@@ -531,7 +557,7 @@ function showApp() {
 }
 
 function showTab(tab) {
-    ['dash', 'prevs', 'clis', 'cliDash', 'api'].forEach(t => document.getElementById(`tab-${t}`)?.classList.add('hidden'));
+    ['dash', 'prevs', 'clis', 'cliDash', 'api', 'monitor'].forEach(t => document.getElementById(`tab-${t}`)?.classList.add('hidden'));
     document.getElementById(`tab-${tab}`)?.classList.remove('hidden');
     document.querySelectorAll('.tab-btn').forEach(b => {
         const active = b.dataset.tab === tab;
@@ -539,11 +565,174 @@ function showTab(tab) {
             active ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
         }`;
     });
-    if (tab === 'dash')  loadDashboard();
-    if (tab === 'prevs') loadAllPrevs();
-    if (tab === 'clis')  loadClients();
+    if (tab === 'dash')    loadDashboard();
+    if (tab === 'prevs')   loadAllPrevs();
+    if (tab === 'clis')    loadClients();
     if (tab === 'cliDash') loadCliDashList();
     if (tab === 'api' && !_apiSpec) loadApiExplorer();
+    if (tab === 'monitor') loadMonitoring();
+}
+
+// ════════════════════════════════════════
+// MONITORING MODÈLE
+// ════════════════════════════════════════
+async function loadMonitoring() {
+    const window_days = document.getElementById('mon-window')?.value || 30;
+    const box = document.getElementById('mon-content');
+    box.innerHTML = '<p class="text-slate-500 text-sm">Chargement…</p>';
+    try {
+        const r = await api('GET', `/exploitation/monitoring?window_days=${window_days}`);
+        box.innerHTML = renderMonitoring(r);
+    } catch(e) {
+        box.innerHTML = `<p class="text-red-400 text-sm">${e.message}</p>`;
+    }
+}
+
+function psiColor(level) {
+    if (level === 'critical')         return 'text-red-400';
+    if (level === 'warn')             return 'text-yellow-400';
+    if (level === 'insufficient_data') return 'text-slate-500';
+    return 'text-green-400';
+}
+function psiBar(psi, level, max=0.3) {
+    if (level === 'insufficient_data') {
+        return `<div class="w-full bg-slate-700 rounded-full h-1.5 mt-1">
+            <div style="width:${Math.min(100,Math.round((psi/max)*100))}%;background:#475569" class="h-1.5 rounded-full"></div>
+        </div>`;
+    }
+    const pct = Math.min(100, Math.round((psi / max) * 100));
+    const col  = psi >= 0.2 ? '#f87171' : psi >= 0.1 ? '#facc15' : '#4ade80';
+    return `<div class="w-full bg-slate-700 rounded-full h-1.5 mt-1">
+        <div style="width:${pct}%;background:${col}" class="h-1.5 rounded-full transition-all"></div>
+    </div>`;
+}
+function statusBadge(status) {
+    if (status === 'critical') return '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-900/50 text-red-300 border border-red-800">CRITIQUE</span>';
+    if (status === 'warn')     return '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-900/50 text-yellow-300 border border-yellow-800">ATTENTION</span>';
+    return '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-green-900/50 text-green-300 border border-green-900">OK</span>';
+}
+
+function renderMonitoring(d) {
+    const drift  = d.drift || {};
+    const conf   = d.confidence || {};
+    const alerts = d.alerts || [];
+    const thr    = d.thresholds || {};
+    const base   = d.baseline || {};
+
+    // — Barre de statut global
+    let html = `
+    <div class="flex items-center gap-4 mb-6 bg-slate-800 border border-slate-700 rounded-2xl p-5">
+        <div class="text-4xl">${d.global_status === 'ok' ? '✅' : d.global_status === 'critical' ? '🔴' : '⚠️'}</div>
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="font-bold text-white text-lg">Statut global</span>
+                ${statusBadge(d.global_status)}
+            </div>
+            <p class="text-slate-400 text-sm mt-0.5">
+                ${d.n_alerts} alerte(s) active(s) · Fenêtre : ${d.window_days} jours
+                · Baseline : ${base.n_train_samples?.toLocaleString()} échantillons train
+            </p>
+        </div>
+    </div>`;
+
+    // — Alertes
+    if (alerts.length > 0) {
+        html += `<div class="mb-6">
+        <h3 class="font-semibold text-white mb-3">Alertes actives</h3>
+        <div class="space-y-2">`;
+        for (const a of alerts) {
+            const icon = a.severity === 'critical' ? '🔴' : '⚠️';
+            html += `<div class="border rounded-xl px-4 py-3 ${a.severity === 'critical' ? 'bg-red-900/20 border-red-800' : 'bg-yellow-900/20 border-yellow-800'}">
+                <div class="flex items-start gap-2">
+                    <span class="text-lg mt-0.5">${icon}</span>
+                    <div>
+                        <p class="font-medium text-white text-sm">${a.message}</p>
+                        <p class="text-slate-400 text-xs mt-0.5">${a.detail}</p>
+                    </div>
+                </div>
+            </div>`;
+        }
+        html += `</div></div>`;
+    } else {
+        html += `<div class="mb-6 bg-green-900/20 border border-green-900 rounded-xl px-4 py-3 flex items-center gap-2">
+            <span class="text-lg">✅</span>
+            <p class="text-green-300 text-sm font-medium">Aucune alerte active sur la période.</p>
+        </div>`;
+    }
+
+    // — Data Drift PSI
+    html += `<div class="grid grid-cols-2 gap-4 mb-6">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
+        <h3 class="font-semibold text-white mb-4">Data Drift par feature (PSI)</h3>
+        <div class="space-y-3">`;
+    for (const [feat, d2] of Object.entries(drift)) {
+        html += `<div>
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-slate-300 font-medium">${feat}</span>
+                <div class="flex items-center gap-2">
+                    <span class="${psiColor(d2.level)} font-mono text-xs">PSI ${d2.psi?.toFixed(3)}</span>
+                    <span class="text-slate-500 text-xs">${d2.n_samples} pts${d2.level === 'insufficient_data' ? ' · <span class="text-slate-600">données insuffisantes</span>' : ''}</span>
+                </div>
+            </div>
+            ${psiBar(d2.psi, d2.level)}
+            <div class="flex justify-between text-xs text-slate-600 mt-0.5">
+                <span>prod: ${d2.prod_mean ?? '—'}</span>
+                <span>train: ${d2.train_mean}</span>
+            </div>
+        </div>`;
+    }
+    html += `</div>
+        <div class="mt-4 pt-3 border-t border-slate-700 flex gap-4 text-xs text-slate-500">
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span>OK &lt; ${thr.psi_ok}</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span>Modéré &lt; ${thr.psi_warn}</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>Critique ≥ ${thr.psi_warn}</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-500 inline-block"></span>Min ${thr.min_samples_psi} pts requis</span>
+        </div>
+        ${d.n_insufficient > 0 ? `<p class="text-xs text-slate-600 mt-2">ℹ️ ${d.n_insufficient} feature(s) en données insuffisantes — PSI non significatif, pas d'alerte déclenchée.</p>` : ''}
+    </div>`;
+
+    // — Dégradation modèle (confiance)
+    const confOk   = (conf.avg_confidence ?? 0) >= thr.confidence_warn;
+    const potDelta = conf.potability_rate != null
+        ? Math.abs(conf.potability_rate - base.potability_rate)
+        : null;
+    html += `<div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
+        <h3 class="font-semibold text-white mb-4">Dégradation du modèle</h3>
+        ${conf.n_predictions === 0
+            ? '<p class="text-slate-500 text-sm">Aucune prédiction sur la période.</p>'
+            : `<div class="space-y-4">
+            <div class="bg-slate-900/50 rounded-xl p-4">
+                <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Confiance moyenne</p>
+                <div class="flex items-end gap-2">
+                    <span class="text-3xl font-bold ${confOk ? 'text-green-400' : 'text-yellow-400'}">
+                        ${(conf.avg_confidence * 100).toFixed(1)}%
+                    </span>
+                    <span class="text-slate-500 text-sm mb-1">seuil : ${(thr.confidence_warn * 100).toFixed(0)}%</span>
+                </div>
+                <div class="w-full bg-slate-700 rounded-full h-2 mt-2">
+                    <div style="width:${Math.round(conf.avg_confidence * 100)}%;background:${confOk ? '#4ade80' : '#facc15'}" class="h-2 rounded-full"></div>
+                </div>
+            </div>
+            <div class="bg-slate-900/50 rounded-xl p-4">
+                <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Prédictions incertaines (0.4–0.6)</p>
+                <span class="text-2xl font-bold text-white">${((conf.pct_uncertain ?? 0) * 100).toFixed(1)}%</span>
+                <span class="text-slate-500 text-sm ml-2">sur ${conf.n_predictions} prédictions</span>
+            </div>
+            <div class="bg-slate-900/50 rounded-xl p-4">
+                <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Taux potabilité prod vs baseline</p>
+                <div class="flex items-center gap-3">
+                    <span class="text-xl font-bold text-white">${((conf.potability_rate ?? 0) * 100).toFixed(1)}%</span>
+                    <span class="text-slate-500 text-sm">prod</span>
+                    <span class="text-slate-600">vs</span>
+                    <span class="text-xl font-bold text-slate-400">${((base.potability_rate ?? 0) * 100).toFixed(1)}%</span>
+                    <span class="text-slate-500 text-sm">baseline</span>
+                    ${potDelta != null ? `<span class="text-xs px-2 py-0.5 rounded-full ${potDelta > thr.potability_drift_warn ? 'bg-yellow-900/50 text-yellow-300' : 'bg-slate-700 text-slate-400'}">Δ ${(potDelta * 100).toFixed(1)}%</span>` : ''}
+                </div>
+            </div>
+        </div>`}
+    </div></div>`;
+
+    return html;
 }
 
 // ════════════════════════════════════════

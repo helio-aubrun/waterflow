@@ -966,3 +966,22 @@ def exploitation_audit():
             "detail":      l.detail,
         } for l in paged["items"]],
     })
+
+
+@bp.route("/exploitation/monitoring", methods=["GET"])
+@require_expert(role="exploit")
+@timed
+def exploitation_monitoring():
+    """
+    Monitoring du modèle ML :
+    - Data drift (PSI par feature vs baseline entraînement)
+    - Dégradation (distribution des scores de confiance)
+    - Alertes actives (seuils PSI, confiance, taux potabilité)
+    Paramètre optionnel : ?window_days=N (défaut : 30)
+    """
+    from api.services.monitoring_service import full_report
+
+    window = min(365, max(1, int(request.args.get("window_days", 30))))
+    report = full_report(g.db, window_days=window)
+    log_audit("exploitation_monitoring")
+    return jsonify(report)
