@@ -16,12 +16,19 @@
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
         input[type=number]::-webkit-inner-spin-button { opacity: 0.4; }
+        /* Accessibilité — lien d'évitement (WCAG 2.4.1 / RGAA 12.7) */
+        .skip-link { position: absolute; top: -100%; left: 0; padding: .5rem 1rem; background: #2563eb; color: #fff; font-size: .875rem; border-radius: 0 0 .5rem 0; z-index: 9999; }
+        .skip-link:focus { top: 0; }
     </style>
 </head>
 <body class="bg-[#0f172a] text-slate-200 min-h-screen">
 
+<!-- Lien d'évitement (WCAG 2.4.1 / RGAA 12.7) -->
+<a href="#main-content" class="skip-link">Aller au contenu principal</a>
+
 <!-- ═══════════════════ MODAL ═══════════════════ -->
-<div id="modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"
+    class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
     <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl fade-in">
         <h3 id="modal-title" class="font-bold text-white text-lg mb-1"></h3>
         <p id="modal-sub" class="text-slate-400 text-sm mb-4"></p>
@@ -37,40 +44,42 @@
 <div id="pg-login" class="min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-sm fade-in">
         <div class="text-center mb-8">
-            <div class="text-5xl mb-3">💧</div>
+            <div class="text-5xl mb-3" aria-hidden="true">💧</div>
             <h1 class="text-2xl font-bold text-white">Waterflow 2</h1>
             <p class="text-slate-500 text-sm mt-1">Plateforme d'analyse de potabilité</p>
         </div>
         <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-2xl">
-            <div class="flex bg-slate-900/60 rounded-xl p-1 mb-5">
-                <button id="ltab-client" onclick="setLoginTab('client')"
+            <div role="tablist" aria-label="Type de connexion" class="flex bg-slate-900/60 rounded-xl p-1 mb-5">
+                <button id="ltab-client" role="tab" aria-selected="true" aria-controls="ls-client"
+                    onclick="setLoginTab('client')"
                     class="flex-1 py-2 rounded-lg text-sm font-medium transition-all">
-                    🏛 Client
+                    <span aria-hidden="true">🏛</span> Client
                 </button>
-                <button id="ltab-expert" onclick="setLoginTab('expert')"
+                <button id="ltab-expert" role="tab" aria-selected="false" aria-controls="ls-expert"
+                    onclick="setLoginTab('expert')"
                     class="flex-1 py-2 rounded-lg text-sm font-medium transition-all">
-                    🔬 Expert
+                    <span aria-hidden="true">🔬</span> Expert
                 </button>
             </div>
-            <div id="ls-client">
-                <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Clé API</label>
+            <div id="ls-client" role="tabpanel" aria-labelledby="ltab-client">
+                <label for="inp-key" class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Clé API</label>
                 <input id="inp-key" type="password" placeholder="Collez votre X-API-Key…"
-                    class="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
+                    class="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     onkeydown="if(event.key==='Enter')doLogin()">
             </div>
-            <div id="ls-expert" class="hidden">
-                <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Token Bearer</label>
+            <div id="ls-expert" role="tabpanel" aria-labelledby="ltab-expert" class="hidden">
+                <label for="inp-tok" class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Token Bearer</label>
                 <input id="inp-tok" type="password" placeholder="Collez votre token expert…"
-                    class="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
+                    class="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     onkeydown="if(event.key==='Enter')doLogin()">
             </div>
-            <div id="login-err" class="hidden mt-3 bg-red-900/40 border border-red-800 text-red-300 rounded-lg px-3 py-2 text-sm"></div>
+            <div id="login-err" role="alert" aria-live="assertive" class="hidden mt-3 bg-red-900/40 border border-red-800 text-red-300 rounded-lg px-3 py-2 text-sm"></div>
             <button id="login-btn" onclick="doLogin()"
-                class="mt-4 w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-xl py-3 text-sm font-semibold transition-colors">
+                class="mt-4 w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-xl py-3 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400">
                 Se connecter
             </button>
             <p class="text-center mt-4">
-                <a href="/apidocs" target="_blank"
+                <a href="/apidocs" target="_blank" aria-label="Documentation API (ouvre dans un nouvel onglet)"
                     class="text-xs text-slate-500 hover:text-blue-400 transition-colors">Documentation API ↗</a>
             </p>
         </div>
@@ -84,42 +93,42 @@
     <header class="bg-slate-800/90 border-b border-slate-700 sticky top-0 z-20 backdrop-blur">
         <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
             <div class="flex items-center gap-3 min-w-0">
-                <span class="text-xl select-none">💧</span>
+                <span class="text-xl select-none" aria-hidden="true">💧</span>
                 <span class="font-bold text-white hidden sm:block">Waterflow 2</span>
                 <span id="hdr-badge" class="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"></span>
                 <span id="hdr-user" class="text-sm text-slate-400 truncate"></span>
             </div>
             <!-- Expert tab nav -->
-            <nav id="expert-tabs" class="hidden flex gap-1">
-                <button onclick="showTab('dash')" data-tab="dash"
-                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
-                    📊 Dashboard
+            <nav id="expert-tabs" role="tablist" aria-label="Navigation expert" class="hidden flex gap-1">
+                <button onclick="showTab('dash')" data-tab="dash" role="tab" aria-selected="false" aria-controls="tab-dash"
+                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <span aria-hidden="true">📊</span> Dashboard
                 </button>
-                <button onclick="showTab('prevs')" data-tab="prevs"
-                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
-                    🧪 Prélèvements
+                <button onclick="showTab('prevs')" data-tab="prevs" role="tab" aria-selected="false" aria-controls="tab-prevs"
+                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <span aria-hidden="true">🧪</span> Prélèvements
                 </button>
-                <button onclick="showTab('clis')" data-tab="clis"
-                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
-                    🏛 Clients
+                <button onclick="showTab('clis')" data-tab="clis" role="tab" aria-selected="false" aria-controls="tab-clis"
+                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <span aria-hidden="true">🏛</span> Clients
                 </button>
-                <button onclick="showTab('cliDash')" data-tab="cliDash"
-                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
-                    📈 Par client
+                <button onclick="showTab('cliDash')" data-tab="cliDash" role="tab" aria-selected="false" aria-controls="tab-cliDash"
+                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <span aria-hidden="true">📈</span> Par client
                 </button>
-                <button onclick="showTab('api')" data-tab="api"
-                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
-                    🔌 API
+                <button onclick="showTab('api')" data-tab="api" role="tab" aria-selected="false" aria-controls="tab-api"
+                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <span aria-hidden="true">🔌</span> API
                 </button>
-                <button onclick="showTab('monitor')" data-tab="monitor"
-                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
-                    🩺 Monitoring
+                <button onclick="showTab('monitor')" data-tab="monitor" role="tab" aria-selected="false" aria-controls="tab-monitor"
+                    class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <span aria-hidden="true">🩺</span> Monitoring
                 </button>
             </nav>
             <div class="flex items-center gap-3 shrink-0">
                 <div class="flex items-center gap-1.5">
-                    <span id="h-dot" class="w-2 h-2 rounded-full bg-slate-600"></span>
-                    <span id="h-txt" class="text-xs text-slate-500 hidden sm:block">…</span>
+                    <span id="h-dot" aria-hidden="true" class="w-2 h-2 rounded-full bg-slate-600"></span>
+                    <span id="h-txt" class="text-xs text-slate-500 hidden sm:block" aria-live="polite">…</span>
                 </div>
                 <button onclick="logout()"
                     class="text-xs text-slate-500 hover:text-red-400 transition-colors px-2 py-1 rounded">
@@ -130,7 +139,7 @@
     </header>
 
     <!-- Main -->
-    <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
+    <main id="main-content" class="flex-1 max-w-7xl mx-auto w-full px-4 py-6" tabindex="-1">
 
         <!-- ─── CLIENT VIEW ─── -->
         <div id="vw-client" class="hidden">
@@ -154,7 +163,7 @@
             <div class="grid grid-cols-2 gap-4 mb-6">
                 <!-- Manual form -->
                 <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 fade-in">
-                    <h2 class="font-semibold text-white mb-4">🧪 Nouvelle analyse manuelle</h2>
+                    <h2 class="font-semibold text-white mb-4"><span aria-hidden="true">🧪</span> Nouvelle analyse manuelle</h2>
                     <div class="grid grid-cols-2 gap-3" id="manual-fields"></div>
                     <button id="btn-manual" onclick="submitManual()"
                         class="mt-4 w-full bg-blue-600 hover:bg-blue-500 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors">
@@ -165,10 +174,10 @@
 
                 <!-- OCR Upload -->
                 <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 fade-in">
-                    <h2 class="font-semibold text-white mb-4">📄 Upload fiche laboratoire</h2>
+                    <h2 class="font-semibold text-white mb-4"><span aria-hidden="true">📄</span> Upload fiche laboratoire</h2>
                     <label id="drop-zone" for="ocr-inp"
                         class="block cursor-pointer border-2 border-dashed border-slate-600 hover:border-blue-500 rounded-xl p-8 text-center transition-colors">
-                        <div class="text-4xl mb-2">📁</div>
+                        <div class="text-4xl mb-2" aria-hidden="true">📁</div>
                         <p class="text-sm text-slate-400">Glisser-déposer ou cliquer</p>
                         <p class="text-xs text-slate-600 mt-1">PDF · PNG · JPG · max 20 Mo</p>
                     </label>
@@ -229,29 +238,29 @@
                 <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-4 fade-in">
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div>
-                            <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Client</label>
+                            <label for="f-client" class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Client</label>
                             <input id="f-client" type="text" placeholder="COMM-042…"
-                                class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
+                                class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                                 onkeydown="if(event.key==='Enter')loadAllPrevs()">
                         </div>
                         <div>
-                            <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Source</label>
+                            <label for="f-source" class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Source</label>
                             <select id="f-source"
-                                class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 transition-colors">
+                                class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
                                 <option value="">Toutes</option>
                                 <option value="manual">Manuel</option>
                                 <option value="ocr">OCR</option>
                             </select>
                         </div>
                         <div>
-                            <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Date début</label>
+                            <label for="f-date-from" class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Date début</label>
                             <input id="f-date-from" type="date"
-                                class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 transition-colors [color-scheme:dark]">
+                                class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors [color-scheme:dark]">
                         </div>
                         <div>
-                            <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Date fin</label>
+                            <label for="f-date-to" class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Date fin</label>
                             <input id="f-date-to" type="date"
-                                class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 transition-colors [color-scheme:dark]">
+                                class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors [color-scheme:dark]">
                         </div>
                     </div>
                     <div class="flex items-center gap-2 mt-3">
@@ -283,22 +292,22 @@
                     </div>
                     <!-- Create client -->
                     <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 h-fit fade-in">
-                        <h2 class="font-semibold text-white mb-4">➕ Nouveau client</h2>
+                        <h2 class="font-semibold text-white mb-4"><span aria-hidden="true">➕</span> Nouveau client</h2>
                         <div class="space-y-3">
                             <div>
-                                <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Identifiant métier</label>
+                                <label for="nc-id" class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Identifiant métier</label>
                                 <input id="nc-id" type="text" placeholder="COMM-042"
-                                    class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors">
+                                    class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
                             </div>
                             <div>
-                                <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Dénomination</label>
+                                <label for="nc-den" class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Dénomination</label>
                                 <input id="nc-den" type="text" placeholder="Commune de Bordeaux"
-                                    class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors">
+                                    class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
                             </div>
                             <div>
-                                <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Adresse</label>
+                                <label for="nc-adr" class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Adresse</label>
                                 <input id="nc-adr" type="text" placeholder="1 Place de la Mairie…"
-                                    class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors">
+                                    class="w-full bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
                             </div>
                         </div>
                         <button onclick="createClient()"
@@ -319,9 +328,10 @@
                             <span class="text-sm font-semibold text-white">Clients</span>
                             <button onclick="loadCliDashList()" class="text-xs text-blue-400 hover:underline">↺</button>
                         </div>
+                        <label for="cd-search" class="sr-only">Rechercher un client</label>
                         <input id="cd-search" type="text" placeholder="Rechercher…"
                             oninput="filterCliList(this.value)"
-                            class="mx-3 mt-3 mb-2 bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors">
+                            class="mx-3 mt-3 mb-2 bg-[#0f172a] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
                         <div id="cd-list" class="flex-1 overflow-y-auto"></div>
                     </div>
 
@@ -401,8 +411,9 @@
                 <div class="flex items-center justify-between mb-5">
                     <h2 class="font-bold text-white text-lg">Monitoring du modèle ML</h2>
                     <div class="flex items-center gap-3">
+                        <label for="mon-window" class="text-sm text-slate-400 sr-only">Fenêtre temporelle</label>
                         <select id="mon-window" onchange="loadMonitoring()"
-                            class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none">
+                            class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="7">7 derniers jours</option>
                             <option value="30" selected>30 derniers jours</option>
                             <option value="90">90 derniers jours</option>
@@ -421,9 +432,10 @@
             <!-- Tab: API Explorer -->
             <div id="tab-api" class="hidden fade-in">
                 <div class="flex items-center gap-3 mb-5">
+                    <label for="api-search" class="sr-only">Filtrer les routes API</label>
                     <input id="api-search" type="text" placeholder="Filtrer les routes…"
                         oninput="filterApiRoutes(this.value)"
-                        class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors">
+                        class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
                     <span id="api-spec-ver" class="text-xs text-slate-600 shrink-0"></span>
                 </div>
                 <div id="api-endpoints" class="space-y-6"></div>
@@ -470,8 +482,12 @@ function setLoginTab(t) {
     S.ltab = t;
     const on  = 'flex-1 py-2 rounded-lg text-sm font-medium transition-all bg-slate-700 text-white shadow';
     const off = 'flex-1 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-slate-200';
-    document.getElementById('ltab-client').className = t === 'client' ? on : off;
-    document.getElementById('ltab-expert').className = t === 'expert' ? on : off;
+    const clientBtn = document.getElementById('ltab-client');
+    const expertBtn = document.getElementById('ltab-expert');
+    clientBtn.className = t === 'client' ? on : off;
+    expertBtn.className = t === 'expert' ? on : off;
+    clientBtn.setAttribute('aria-selected', t === 'client' ? 'true' : 'false');
+    expertBtn.setAttribute('aria-selected', t === 'expert' ? 'true' : 'false');
     document.getElementById('ls-client').classList.toggle('hidden', t !== 'client');
     document.getElementById('ls-expert').classList.toggle('hidden', t !== 'expert');
 }
@@ -561,9 +577,10 @@ function showTab(tab) {
     document.getElementById(`tab-${tab}`)?.classList.remove('hidden');
     document.querySelectorAll('.tab-btn').forEach(b => {
         const active = b.dataset.tab === tab;
-        b.className = `tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+        b.className = `tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
             active ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
         }`;
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
     });
     if (tab === 'dash')    loadDashboard();
     if (tab === 'prevs')   loadAllPrevs();
@@ -1081,15 +1098,36 @@ async function genKey(clientId, clientLabel) {
 // ════════════════════════════════════════
 // MODAL
 // ════════════════════════════════════════
+let _modalPrevFocus = null;
 function openModal(title, sub, body) {
+    _modalPrevFocus = document.activeElement;
     document.getElementById('modal-title').textContent = title;
     document.getElementById('modal-sub').textContent   = sub;
     document.getElementById('modal-body').innerHTML    = body;
-    document.getElementById('modal').classList.remove('hidden');
+    const modal = document.getElementById('modal');
+    modal.classList.remove('hidden');
+    // Déplace le focus sur le premier élément focusable de la modale
+    const focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (focusable.length) focusable[0].focus();
 }
-function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+function closeModal() {
+    document.getElementById('modal').classList.add('hidden');
+    // Restaure le focus sur l'élément qui a ouvert la modale
+    if (_modalPrevFocus) { _modalPrevFocus.focus(); _modalPrevFocus = null; }
+}
 document.getElementById('modal').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeModal();
+});
+// Fermeture au clavier (Échap) et piège de focus dans la modale
+document.getElementById('modal').addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeModal(); return; }
+    if (e.key !== 'Tab') return;
+    const modal = document.getElementById('modal');
+    const focusable = [...modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')];
+    if (!focusable.length) return;
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 });
 
 // ════════════════════════════════════════
