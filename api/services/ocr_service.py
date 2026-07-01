@@ -161,6 +161,37 @@ def _claude_structure(raw_text: str) -> dict[str, Any]:
     return json.loads(match.group())
 
 
+# ── Extraction basique (fallback sans Claude) ────────────────────────────────
+
+def _basic_extract(raw_text: str) -> dict[str, Any]:
+    """Extraction minimale par regex quand ANTHROPIC_API_KEY est absent."""
+    patterns = {
+        "ph":              r"ph\s*[=:\-]\s*([\d,\.]+)",
+        "Hardness":        r"hard(?:ness|esse)?\s*[=:\-]\s*([\d,\.]+)",
+        "Solids":          r"solid[se]?\s*[=:\-]\s*([\d,\.]+)",
+        "Chloramines":     r"chloramine[s]?\s*[=:\-]\s*([\d,\.]+)",
+        "Sulfate":         r"sulfate[s]?\s*[=:\-]\s*([\d,\.]+)",
+        "Conductivity":    r"conductivit[yéi]\s*[=:\-]\s*([\d,\.]+)",
+        "Organic_carbon":  r"organic[_ ]?carbon\s*[=:\-]\s*([\d,\.]+)",
+        "Trihalomethanes": r"trihalomethane[s]?\s*[=:\-]\s*([\d,\.]+)",
+        "Turbidity":       r"turbidit[yéi]\s*[=:\-]\s*([\d,\.]+)",
+    }
+    mesures: dict[str, Any] = {}
+    for field, pat in patterns.items():
+        m = re.search(pat, raw_text, re.IGNORECASE)
+        mesures[field] = float(m.group(1).replace(",", ".")) if m else None
+
+    return {
+        "date_prelevement": None,
+        "id_client":        None,
+        "lieu":             None,
+        "mesures":          mesures,
+        "observations":     None,
+        "raw_text":         raw_text,
+        "warnings":         ["Extraction basique uniquement (ANTHROPIC_API_KEY absent) — vérifiez les valeurs"],
+    }
+
+
 # ── Normalisation ────────────────────────────────────────────────────────────
 
 def _normalise(data: dict) -> dict[str, Any]:
@@ -203,7 +234,13 @@ def extract_from_document(file_bytes: bytes, mime: str) -> dict[str, Any]:
     if mime not in ACCEPTED_MIME:
         raise ValueError(f"Type non supporté : {mime}")
 
-    # Stratégie 1 : OCR.space + Claude structuration
+    if not OCR_SPACE_KEY and not ANTHROPIC_KEY:
+        raise RuntimeError(
+            "Aucun service OCR disponible. "
+            "Définissez OCR_SPACE_API_KEY et/ou ANTHROPIC_API_KEY."
+        )
+
+    # Stratégie 1 : OCR.space (+ Claude structuration si disponible)
     if OCR_SPACE_KEY:
         try:
             logger.info("Tentative OCR.space | type=%s taille=%.1fko", mime, len(file_bytes)/1024)
@@ -211,7 +248,11 @@ def extract_from_document(file_bytes: bytes, mime: str) -> dict[str, Any]:
             if len(raw_text) < 20:
                 raise ValueError("Texte OCR.space trop court, basculement sur Claude Vision")
             logger.info("OCR.space OK | %d chars", len(raw_text))
-            result = _claude_structure(raw_text)
+            if ANTHROPIC_KEY:
+                result = _claude_structure(raw_text)
+            else:
+                logger.info("Structuration basique (ANTHROPIC_API_KEY absent)")
+                result = _basic_extract(raw_text)
             if not result.get("raw_text"):
                 result["raw_text"] = raw_text
             return _normalise(result)
