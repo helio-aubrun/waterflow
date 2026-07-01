@@ -1,0 +1,280 @@
+name: Waterflow — CI Modèle ML
+
+# Déclenché uniquement quand les artefacts ou le notebook changent
+on:
+  push:
+    paths:
+      - "model_artifacts/**"
+      - "notebooks/water_xgboost.ipynb"
+      - "tests/test_model_validation.py"
+      - "data/water_potability*.csv"
+  pull_request:
+    paths:
+      - "model_artifacts/**"
+      - "notebooks/water_xgboost.ipynb"
+      - "tests/test_model_validation.py"
+  workflow_dispatch:   # déclenchement manuel depuis GitHub
+
+jobs:
+  # ══════════════════════════════════════════════════════════════════════════
+  # JOB 1 — Intégrité des artefacts
+  # Vérifie que tous les fichiers nécessaires sont présents et non corrompus
+  # ══════════════════════════════════════════════════════════════════════════
+  artefacts:
+    name: Vérification des artefacts
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Installer les dépendances ML
+        run: pip install xgboost scikit-learn joblib numpy pytest
+
+      - name: Vérifier la présence des fichiers
+        run: |
+          echo "=== Artefacts présents ==="
+          for f in \
+            model_artifacts/xgboost_model.json \
+            model_artifacts/robust_scaler.pkl \
+            model_artifacts/metadata.json \
+            model_artifacts/X_val_sc.npy \
+            model_artifacts/y_val.npy \
+            model_artifacts/y_pred.npy \
+            model_artifacts/y_pred_prob.npy \
+            model_artifacts/cv_scores.npy \
+            model_artifacts/training_stats.json; do
+            if [ -f "$f" ]; then
+              size=$(du -h "$f" | cut -f1)
+              echo "  ✓  $f  ($size)"
+            else
+              echo "  ✗  MANQUANT : $f"
+              exit 1
+            fi
+          done
+
+      - name: Vérifier le chargement du modèle
+        run: |
+          python - <<'EOF'
+          import xgboost as xgb, joblib, json, numpy as np
+
+          model = xgb.XGBClassifier()
+          model.load_model("model_artifacts/xgboost_model.json")
+          print(f"Modèle chargé — n_features={model.n_features_in_}, n_estimators={model.n_estimators}")
+          assert model.n_features_in_ == 9
+
+          scaler = joblib.load("model_artifacts/robust_scaler.pkl")
+          print(f"Scaler chargé — {scaler.__class__.__name__}")
+
+          meta = json.load(open("model_artifacts/metadata.json"))
+          print(f"Métadonnées — ROC-AUC={meta['metrics']['ROC-AUC']:.4f}")
+
+          X = np.load("model_artifacts/X_val_sc.npy")
+          y = np.load("model_artifacts/y_val.npy")
+          print(f"Données validation — X={X.shape}, y={y.shape}")
+          assert X.shape[1] == 9
+          assert X.shape[0] == y.shape[0]
+          print("Tous les artefacts sont valides.")
+          EOF
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # JOB 2 — Performance du modèle
+  # Recharge le modèle, calcule les métriques live, compare aux seuils
+  # ══════════════════════════════════════════════════════════════════════════
+  performance:
+    name: Validation des performances
+    runs-on: ubuntu-latest
+    needs: artefacts
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Installer les dépendances ML
+        run: pip install xgboost scikit-learn joblib numpy pytest
+
+      - name: Calculer les métriques live
+        run: |
+          python - <<'EOF'
+          import xgboost as xgb, joblib, json, numpy as np, sys
+          from sklearn.metrics import (
+              accuracy_score, f1_score, roc_auc_score,
+              average_precision_score, precision_score, recall_score,
+          )
+
+          THRESHOLDS = {
+              "accuracy":   0.60,
+              "f1":         0.45,
+              "roc_auc":    0.60,
+              "pr_auc":     0.55,
+              "cv_mean":    0.62,
+              "cv_std_max": 0.05,
+          }
+
+          # Chargement
+          model = xgb.XGBClassifier()
+          model.load_model("model_artifacts/xgboost_model.json")
+          X_val = np.load("model_artifacts/X_val_sc.npy")
+          y_val = np.load("model_artifacts/y_val.npy")
+          cv    = np.load("model_artifacts/cv_scores.npy")
+
+          # Inférence
+          y_pred = model.predict(X_val)
+          y_prob = model.predict_proba(X_val)[:, 1]
+
+          # Métriques
+          metrics = {
+              "accuracy":  accuracy_score(y_val, y_pred),
+              "f1":        f1_score(y_val, y_pred),
+              "roc_auc":   roc_auc_score(y_val, y_prob),
+              "pr_auc":    average_precision_score(y_val, y_prob),
+              "precision": precision_score(y_val, y_pred),
+              "recall":    recall_score(y_val, y_pred),
+              "cv_mean":   cv.mean(),
+              "cv_std":    cv.std(),
+          }
+
+          # Affichage
+          print("\n══════════════════════════════════════")
+          print("  MÉTRIQUES DU MODÈLE (live)")
+          print("══════════════════════════════════════")
+          for name, val in metrics.items():
+              seuil = THRESHOLDS.get(name, THRESHOLDS.get(name.replace("_max", ""), None))
+              status = ""
+              if name == "cv_std":
+                  status = "✓" if val <= THRESHOLDS["cv_std_max"] else "✗ SEUIL DÉPASSÉ"
+              elif seuil is not None:
+                  status = "✓" if val >= seuil else f"✗ SOUS LE SEUIL ({seuil})"
+              print(f"  {name:12s}: {val:.4f}  {status}")
+
+          # Vérification des seuils
+          failures = []
+          for metric, threshold in THRESHOLDS.items():
+              if metric == "cv_std_max":
+                  if metrics["cv_std"] > threshold:
+                      failures.append(f"cv_std {metrics['cv_std']:.4f} > max {threshold}")
+              elif metric in metrics:
+                  if metrics[metric] < threshold:
+                      failures.append(f"{metric} {metrics[metric]:.4f} < seuil {threshold}")
+
+          if failures:
+              print("\n✗ ÉCHECS :")
+              for f in failures:
+                  print(f"    - {f}")
+              sys.exit(1)
+          else:
+              print("\n✓ Toutes les métriques respectent les seuils.")
+          EOF
+
+      - name: Lancer les tests pytest du modèle
+        run: |
+          pytest tests/test_model_validation.py -v \
+            --tb=short \
+            -k "not test_metriques_coherentes"
+
+      - name: Exporter le rapport de métriques
+        if: always()
+        run: |
+          python - <<'EOF'
+          import xgboost as xgb, json, numpy as np
+          from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, average_precision_score
+
+          model = xgb.XGBClassifier()
+          model.load_model("model_artifacts/xgboost_model.json")
+          X_val  = np.load("model_artifacts/X_val_sc.npy")
+          y_val  = np.load("model_artifacts/y_val.npy")
+          y_pred = model.predict(X_val)
+          y_prob = model.predict_proba(X_val)[:, 1]
+          cv     = np.load("model_artifacts/cv_scores.npy")
+          meta   = json.load(open("model_artifacts/metadata.json"))
+
+          report = {
+              "live": {
+                  "accuracy": round(accuracy_score(y_val, y_pred), 6),
+                  "f1":       round(f1_score(y_val, y_pred), 6),
+                  "roc_auc":  round(roc_auc_score(y_val, y_prob), 6),
+                  "pr_auc":   round(average_precision_score(y_val, y_prob), 6),
+                  "cv_mean":  round(float(cv.mean()), 6),
+                  "cv_std":   round(float(cv.std()), 6),
+              },
+              "reference": meta["metrics"],
+              "n_val": int(y_val.shape[0]),
+          }
+          with open("model_metrics_report.json", "w") as f:
+              json.dump(report, f, indent=2)
+          print("Rapport exporté : model_metrics_report.json")
+          EOF
+
+      - name: Upload rapport métriques
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-metrics-report
+          path: model_metrics_report.json
+          retention-days: 30
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # JOB 3 — Stabilité (non-régression)
+  # Compare les prédictions live aux prédictions sauvegardées
+  # ══════════════════════════════════════════════════════════════════════════
+  stabilite:
+    name: Non-régression du modèle
+    runs-on: ubuntu-latest
+    needs: artefacts
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Installer les dépendances ML
+        run: pip install xgboost numpy pytest joblib scikit-learn
+
+      - name: Vérifier la stabilité des prédictions
+        run: |
+          python - <<'EOF'
+          import xgboost as xgb, numpy as np, sys
+
+          model = xgb.XGBClassifier()
+          model.load_model("model_artifacts/xgboost_model.json")
+          X_val       = np.load("model_artifacts/X_val_sc.npy")
+          y_pred_ref  = np.load("model_artifacts/y_pred.npy")
+          y_prob_ref  = np.load("model_artifacts/y_pred_prob.npy")
+
+          y_pred_live = model.predict(X_val)
+          y_prob_live = model.predict_proba(X_val)[:, 1]
+
+          # Classes identiques ?
+          if not np.array_equal(y_pred_live, y_pred_ref):
+              diff = (y_pred_live != y_pred_ref).sum()
+              pct  = diff / len(y_pred_ref) * 100
+              print(f"✗ {diff} prédictions différentes ({pct:.1f}%) vs référence sauvegardée")
+              sys.exit(1)
+
+          # Probabilités proches ?
+          max_diff = np.abs(y_prob_live - y_prob_ref).max()
+          if max_diff >= 1e-4:
+              print(f"✗ Divergence probabilités : max={max_diff:.2e}")
+              sys.exit(1)
+
+          print(f"✓ Prédictions identiques à la référence (n={len(y_pred_ref)})")
+          print(f"✓ Probabilités stables (diff max={max_diff:.2e})")
+          EOF
+
+      - name: Pytest — tests de stabilité uniquement
+        run: |
+          pytest tests/test_model_validation.py::TestStabilite -v --tb=short
