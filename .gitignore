@@ -24,3 +24,5 @@ venv/
 # Jupyter checkpoints
 .ipynb_checkpoints/
 *.pdf
+
+.patch

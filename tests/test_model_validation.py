@@ -15,6 +15,7 @@ import os
 import json
 import pytest
 import numpy as np
+import pandas as pd
 import joblib
 import xgboost as xgb
 from sklearn.metrics import (
@@ -225,8 +226,16 @@ class TestPerformance:
 class TestInference:
     """Vérifie que le modèle se comporte correctement sur des inputs contrôlés."""
 
-    SAMPLE_POTABLE = np.array([[7.0, 200.0, 20000.0, 7.5, 350.0, 400.0, 14.0, 66.0, 3.5]])
-    SAMPLE_DOUTEUX = np.array([[5.0, 320.0, 55000.0, 12.5, 480.0, 680.0, 28.0, 120.0, 9.0]])
+    # Encapsulés dans un DataFrame nommé (colonnes = FEATURES) pour éviter le
+    # UserWarning sklearn "X does not have valid feature names" : le scaler a
+    # été entraîné (fit) sur un DataFrame nommé, il doit recevoir la même
+    # structure en inférence.
+    SAMPLE_POTABLE = pd.DataFrame(
+        [[7.0, 200.0, 20000.0, 7.5, 350.0, 400.0, 14.0, 66.0, 3.5]], columns=FEATURES
+    )
+    SAMPLE_DOUTEUX = pd.DataFrame(
+        [[5.0, 320.0, 55000.0, 12.5, 480.0, 680.0, 28.0, 120.0, 9.0]], columns=FEATURES
+    )
 
     def test_sortie_binaire(self, model, scaler):
         """La prédiction doit être 0 ou 1."""
