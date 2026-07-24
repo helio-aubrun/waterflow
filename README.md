@@ -36,6 +36,7 @@ waterflow/
 │   ├── owasp.md                   # Correspondance OWASP API Security Top 10
 │   ├── test_coverage.md           # Matrice de traçabilité tests ↔ endpoints
 │   ├── accessibilite.md           # Accessibilité RGAA par partie prenante
+│   ├── monitoring_preuve.md       # Preuve de fonctionnement de la chaîne de monitorage
 │   ├── incident.md                # Procédure de gestion d'incident
 │   └── user_stories.md            # User stories du projet
 ├── notebooks/                      # Exploration des données, entraînement du modèle
@@ -260,6 +261,15 @@ Justification du choix de l'outil de restitution (interface web unique)
 au regard de l'accessibilité pour toutes les parties prenantes (client,
 analyste, exploitation), et vérification critère par critère avec preuve
 dans le code : documentation complète dans `docs/accessibilite.md`.
+
+---
+
+## Monitoring du modèle
+
+Preuve de fonctionnement de la chaîne de monitorage (`/exploitation/monitoring`) :
+métriques visées (US-09) vs métriques réellement calculées et restituées
+(API + UI), exécutions réelles capturées (dev, Docker), tests dédiés :
+documentation complète dans `docs/monitoring_preuve.md`.
 
 ---
 
