@@ -35,6 +35,7 @@ waterflow/
 │   ├── rgpd.md                    # Conformité RGPD détaillée
 │   ├── owasp.md                   # Correspondance OWASP API Security Top 10
 │   ├── test_coverage.md           # Matrice de traçabilité tests ↔ endpoints
+│   ├── test_plan_modele.md        # Plan de test du modèle (parties visées, périmètre, stratégie)
 │   ├── accessibilite.md           # Accessibilité RGAA par partie prenante
 │   ├── monitoring_preuve.md       # Preuve de fonctionnement de la chaîne de monitorage
 │   ├── incident.md                # Procédure de gestion d'incident
@@ -134,7 +135,10 @@ pytest tests/test_api.py -v
 ```
 
 Matrice de traçabilité (quel test couvre quel endpoint, et quoi précisément) :
-`docs/test_coverage.md`.
+`docs/test_coverage.md`. Plan de test du modèle ML (partie visée, périmètre
+et stratégie pour chacun des 92 tests liés au modèle, dont la distinction
+entre tests sur le vrai modèle et tests avec prédiction simulée) :
+`docs/test_plan_modele.md`.
 
 ---
 
