@@ -96,21 +96,22 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ── Déploiement (main uniquement, si un serveur cible est configuré) ──────
-  # Ignoré tant que les secrets DEPLOY_HOST/DEPLOY_USER/DEPLOY_SSH_KEY ne sont
-  # pas renseignés (Settings → Secrets and variables → Actions) — pas de
-  # serveur de production provisionné à ce stade du projet.
+  # Ignoré tant que la variable de dépôt DEPLOY_HOST n'est pas renseignée
+  # (Settings → Secrets and variables → Actions → Variables, PAS Secrets —
+  # "secrets.*" n'est pas autorisé dans un "if:" de job par GitHub Actions).
+  # Pas de serveur de production provisionné à ce stade du projet.
   deploy:
     name: Déploiement production
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && secrets.DEPLOY_HOST != ''
+    if: github.ref == 'refs/heads/main' && vars.DEPLOY_HOST != ''
     environment: production
 
     steps:
       - name: SSH deploy
         uses: appleboy/ssh-action@v1
         with:
-          host:     ${{ secrets.DEPLOY_HOST }}
+          host:     ${{ vars.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key:      ${{ secrets.DEPLOY_SSH_KEY }}
           script: |

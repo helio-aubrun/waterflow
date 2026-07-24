@@ -21,7 +21,7 @@ objectifs différents :
 
 | Événement | Filtre | Effet |
 |---|---|---|
-| `push` | branches `main`, `develop` | Déclenche `test` → `build` (car `build` a `if: github.event_name == 'push'`) → `deploy` (si `push` sur `main` **et** que le secret `DEPLOY_HOST` est renseigné, cf. §1.3) |
+| `push` | branches `main`, `develop` | Déclenche `test` → `build` (car `build` a `if: github.event_name == 'push'`) → `deploy` (si `push` sur `main` **et** que la variable de dépôt `DEPLOY_HOST` est renseignée, cf. §1.3) |
 | `pull_request` | vers `main` | Déclenche **seulement** `test` — `build` ne s'exécute pas (`if` restreint aux `push`), donc pas d'image publiée ni de déploiement sur une PR |
 
 Aucun déclenchement manuel (`workflow_dispatch`) sur cette chaîne — seul `push`/`pull_request`.
@@ -48,17 +48,27 @@ Aucun déclenchement manuel (`workflow_dispatch`) sur cette chaîne — seul `pu
 | 3 | Métadonnées image | `docker/metadata-action@v5` — tags générés : `sha-<commit>`, `<nom-de-branche>`, et `latest` uniquement si la branche est `main` |
 | 4 | Build & Push | `docker/build-push-action@v5`, avec cache GitHub Actions (`type=gha`) |
 
-**Job `deploy`** (« Déploiement production ») — `needs: build`, seulement si `github.ref == 'refs/heads/main'` **et** `secrets.DEPLOY_HOST != ''`, environnement GitHub `production` :
+**Job `deploy`** (« Déploiement production ») — `needs: build`, seulement si `github.ref == 'refs/heads/main'` **et** `vars.DEPLOY_HOST != ''`, environnement GitHub `production` :
+
+> Pourquoi une **variable** (`vars.DEPLOY_HOST`) et pas un secret pour cette
+> condition : GitHub Actions interdit la référence à `secrets.*` dans un
+> `if:` de job (`Unrecognized named-value: 'secrets'`, erreur réelle
+> rencontrée en essayant `secrets.DEPLOY_HOST != ''`). Un nom d'hôte n'étant
+> pas une information sensible en soi (contrairement à l'utilisateur SSH ou
+> la clé privée, qui restent des secrets), `DEPLOY_HOST` est stocké comme
+> variable de dépôt (`Settings → Secrets and variables → Actions →
+> Variables`), ce qui permet de l'utiliser à la fois dans le `if:` du job et
+> comme valeur `host:` de l'étape SSH.
 
 | # | Étape | Détail |
 |---|---|---|
-| 1 | SSH deploy | `appleboy/ssh-action@v1` vers `secrets.DEPLOY_HOST` : login GHCR sur la cible, `docker pull` de l'image taggée, `docker compose pull` + `up -d --remove-orphans`, puis vérification de santé (`curl -f http://localhost:8080/health`, échec du job si la vérification échoue après un délai de 10s) |
+| 1 | SSH deploy | `appleboy/ssh-action@v1` vers `vars.DEPLOY_HOST` (utilisateur/clé restent des secrets : `secrets.DEPLOY_USER`/`secrets.DEPLOY_SSH_KEY`) : login GHCR sur la cible, `docker pull` de l'image taggée, `docker compose pull` + `up -d --remove-orphans`, puis vérification de santé (`curl -f http://localhost:8080/health`, échec du job si la vérification échoue après un délai de 10s) |
 
 ### 1.3 Ce qui ne se déclenche jamais automatiquement
 
 - `build`/`deploy` ne tournent **jamais** sur une pull request — seul `test` s'exécute, ce qui empêche de publier une image ou de déployer depuis une branche non fusionnée.
 - `deploy` ne tourne que sur `main`, pas sur `develop` — un `push` sur `develop` valide (`test`) et construit l'image (`build`), mais ne déploie pas.
-- `deploy` est **ignoré (skip), pas en échec**, tant que le secret `DEPLOY_HOST` n'est pas configuré (`Settings → Secrets and variables → Actions`) — aucun serveur de production n'est provisionné à ce stade du projet ; le job reste prêt à s'activer dès que ce secret (et `DEPLOY_USER`/`DEPLOY_SSH_KEY`) seront renseignés, sans qu'il faille modifier le workflow.
+- `deploy` est **ignoré (skip), pas en échec**, tant que la variable `DEPLOY_HOST` n'est pas configurée (`Settings → Secrets and variables → Actions → Variables`) — aucun serveur de production n'est provisionné à ce stade du projet ; le job reste prêt à s'activer dès que cette variable (et les secrets `DEPLOY_USER`/`DEPLOY_SSH_KEY`) seront renseignés, sans qu'il faille modifier le workflow.
 
 ## 2. `model_ci.yml` — CI dédiée à la validation du modèle ML
 
@@ -121,6 +131,6 @@ git push origin ma-branche   # déclenche `test` (+ `build` si push direct, pas 
   constitue pas une preuve d'exécution réelle sur GitHub Actions (nécessiterait
   un push vers le remote et l'observation d'un run réel, hors périmètre de
   cette vérification documentaire).
-- Les secrets requis (`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`,
+- La variable `DEPLOY_HOST` et les secrets requis (`DEPLOY_USER`, `DEPLOY_SSH_KEY`,
   `GITHUB_TOKEN` implicite) ne sont pas vérifiés ici — leur configuration
   réelle dans les paramètres du dépôt GitHub n'a pas été auditée.
