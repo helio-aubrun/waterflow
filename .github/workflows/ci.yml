@@ -95,12 +95,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ── Déploiement (main uniquement) ─────────────────────────────────────────
+  # ── Déploiement (main uniquement, si un serveur cible est configuré) ──────
+  # Ignoré tant que les secrets DEPLOY_HOST/DEPLOY_USER/DEPLOY_SSH_KEY ne sont
+  # pas renseignés (Settings → Secrets and variables → Actions) — pas de
+  # serveur de production provisionné à ce stade du projet.
   deploy:
     name: Déploiement production
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && secrets.DEPLOY_HOST != ''
     environment: production
 
     steps:

@@ -21,7 +21,7 @@ objectifs différents :
 
 | Événement | Filtre | Effet |
 |---|---|---|
-| `push` | branches `main`, `develop` | Déclenche `test` → `build` (car `build` a `if: github.event_name == 'push'`) → `deploy` (si `push` sur `main`, car `deploy` a `if: github.ref == 'refs/heads/main'`) |
+| `push` | branches `main`, `develop` | Déclenche `test` → `build` (car `build` a `if: github.event_name == 'push'`) → `deploy` (si `push` sur `main` **et** que le secret `DEPLOY_HOST` est renseigné, cf. §1.3) |
 | `pull_request` | vers `main` | Déclenche **seulement** `test` — `build` ne s'exécute pas (`if` restreint aux `push`), donc pas d'image publiée ni de déploiement sur une PR |
 
 Aucun déclenchement manuel (`workflow_dispatch`) sur cette chaîne — seul `push`/`pull_request`.
@@ -48,7 +48,7 @@ Aucun déclenchement manuel (`workflow_dispatch`) sur cette chaîne — seul `pu
 | 3 | Métadonnées image | `docker/metadata-action@v5` — tags générés : `sha-<commit>`, `<nom-de-branche>`, et `latest` uniquement si la branche est `main` |
 | 4 | Build & Push | `docker/build-push-action@v5`, avec cache GitHub Actions (`type=gha`) |
 
-**Job `deploy`** (« Déploiement production ») — `needs: build`, seulement si `github.ref == 'refs/heads/main'`, environnement GitHub `production` :
+**Job `deploy`** (« Déploiement production ») — `needs: build`, seulement si `github.ref == 'refs/heads/main'` **et** `secrets.DEPLOY_HOST != ''`, environnement GitHub `production` :
 
 | # | Étape | Détail |
 |---|---|---|
@@ -58,6 +58,7 @@ Aucun déclenchement manuel (`workflow_dispatch`) sur cette chaîne — seul `pu
 
 - `build`/`deploy` ne tournent **jamais** sur une pull request — seul `test` s'exécute, ce qui empêche de publier une image ou de déployer depuis une branche non fusionnée.
 - `deploy` ne tourne que sur `main`, pas sur `develop` — un `push` sur `develop` valide (`test`) et construit l'image (`build`), mais ne déploie pas.
+- `deploy` est **ignoré (skip), pas en échec**, tant que le secret `DEPLOY_HOST` n'est pas configuré (`Settings → Secrets and variables → Actions`) — aucun serveur de production n'est provisionné à ce stade du projet ; le job reste prêt à s'activer dès que ce secret (et `DEPLOY_USER`/`DEPLOY_SSH_KEY`) seront renseignés, sans qu'il faille modifier le workflow.
 
 ## 2. `model_ci.yml` — CI dédiée à la validation du modèle ML
 
