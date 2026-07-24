@@ -20,7 +20,6 @@ from unittest.mock import patch, MagicMock
 
 # ── Variables d'environnement avant tout import Flask ────────────────────────
 os.environ.setdefault("DATABASE_URL",      "sqlite:///:memory:")
-os.environ.setdefault("MLFLOW_URI",        "mock")
 os.environ.setdefault("SCALER_PATH",       "mock")
 os.environ.setdefault("OCR_SPACE_API_KEY", "")
 os.environ.setdefault("ANTHROPIC_API_KEY", "")

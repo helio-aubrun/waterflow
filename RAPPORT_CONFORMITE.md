@@ -1,6 +1,15 @@
 # Rapport de conformité — Waterflow 2 vs. spécification B3IA 2025
 
-> Analyse réalisée le 2026-06-21 par lecture complète du dépôt et du PDF de spécification.
+> Analyse initiale réalisée le 2026-06-21 par lecture complète du dépôt et du
+> PDF de spécification. **Mise à jour le 24/07/2026** : les points 1 à 3
+> ci-dessous, alors bloquants, sont vérifiés résolus (cf.
+> `docs/couverture_execution.md` pour le détail de la vérification). Le
+> reste du rapport (sections détaillées ci-dessous) n'a pas été
+> intégralement rejoué à cette date et peut contenir d'autres mentions
+> obsolètes localisées — se référer en priorité à `docs/test_coverage.md`,
+> `docs/owasp.md`, `docs/accessibilite.md`, `docs/monitoring_preuve.md`,
+> `docs/test_plan_modele.md` et `docs/outils_test.md` pour l'état vérifié le
+> plus récent de chaque sujet.
 
 ---
 
@@ -8,14 +17,18 @@
 
 Le projet répond à la grande majorité des exigences fonctionnelles et techniques du cahier des charges. L'API unique Flask portant les trois modules (données, prédiction, OCR) est opérationnelle, la base de données est conforme RGPD, la documentation Swagger est en place, et l'interface web permet aux clients comme aux experts d'utiliser la plateforme sans passer par l'API brute.
 
-**Estimation de couverture globale : ~78 %**
+**Couverture globale mesurée le 24/07/2026 (`pytest-cov`) : 82 %** — remplace
+l'ancienne estimation manuelle de ~78 % (21/06/2026). Détail par module et
+preuve d'exécution reproductible (machine de dev + conteneur Docker isolé) :
+`docs/couverture_execution.md`.
 
-Quatre points bloquants sont à corriger avant la soutenance :
+Sur les quatre points bloquants identifiés le 21/06/2026, trois sont résolus
+et vérifiés le 24/07/2026 :
 
-1. `ci.yml` est à la racine, pas dans `.github/workflows/` → la CI GitHub Actions ne se déclenche jamais.
-2. `docs/` est dans `.gitignore` → les cinq fichiers de documentation requis sont absents du dépôt partagé.
-3. `tests/test_fonctionnels.py` et `tests/test_non_regression.py` testent l'ancienne route `/predict` (supprimée) → ils échouent à l'exécution.
-4. L'interface web n'expose pas les filtres (par client, date, source, résultat) requis sur la vue analyste.
+1. ~~`ci.yml` est à la racine, pas dans `.github/workflows/`~~ → **résolu** : `ci.yml` et `model_ci.yml` sont dans `.github/workflows/`, la CI se déclenche normalement.
+2. ~~`docs/` est dans `.gitignore`~~ → **résolu** : `docs/` est versionné, 9 documents de preuve sont présents et référencés depuis le README.
+3. ~~`tests/test_fonctionnels.py` et `tests/test_non_regression.py` testent l'ancienne route `/predict` (supprimée)~~ → **résolu** : ces fichiers ciblent désormais les routes actuelles ; 206/206 tests passent (vérifié machine de dev + Docker, cf. `docs/couverture_execution.md`).
+4. L'interface web n'expose pas les filtres (par client, date, source, résultat) requis sur la vue analyste. → **non revérifié** à cette date (hors périmètre de la vérification couverture/exécution du 24/07/2026).
 
 ---
 
@@ -103,16 +116,17 @@ Quatre points bloquants sont à corriger avant la soutenance :
 
 | Exigence | Statut | Commentaire |
 |---|---|---|
-| Tests unitaires (validation, scaling, prédiction) | ✅ | `tests/test_unitaires.py` — 27 tests, 4 classes |
-| Tests d'intégration API | ⚠️ | `tests/test_fonctionnels.py` et `tests/test_non_regression.py` testent les routes `/predict` et `/health` de l'ancienne architecture. Ces routes et attributs globaux (`flask_app.model`, `flask_app.FEATURES`) n'existent plus dans le `app.py` actuel → **ces tests échouent**. |
-| Test bout en bout (OCR → prélèvement → prédiction) | ✅ | `tests/test_e2e.py` — 10 tests avec mocks OCR et ML |
+| Tests unitaires (validation, scaling, prédiction) | ✅ | `tests/test_unitaires.py` — 32 tests, 4 classes (cf. `docs/test_plan_modele.md`) |
+| Tests d'intégration API | ✅ *(mis à jour 24/07/2026)* | `tests/test_fonctionnels.py` et `tests/test_non_regression.py` ciblent désormais les routes actuelles — 206/206 tests passent, vérifié sur machine de dev et conteneur Docker isolé (`docs/couverture_execution.md`) |
+| Test bout en bout (OCR → prélèvement → prédiction) | ✅ | `tests/test_e2e.py` |
 | Jeux de données de test | ✅ | `conftest.py` + `water_potability.csv` / `water_potability_clean.csv` |
+| Couverture de test mesurée | ✅ *(ajouté 24/07/2026)* | 82 % (`pytest-cov`), seuil `--cov-fail-under=75` appliqué en CI — cf. `docs/couverture_execution.md` |
 
 #### CI/CD
 
 | Exigence | Statut | Commentaire |
 |---|---|---|
-| CI exécutant les tests à chaque push | ❌ | `ci.yml` est à la **racine** du dépôt. GitHub Actions lit uniquement `.github/workflows/*.yml`. Le fichier n'est jamais déclenché. |
+| CI exécutant les tests à chaque push | ✅ *(mis à jour 24/07/2026)* | `ci.yml` est dans `.github/workflows/` (déplacé depuis la racine) |
 | Build image Docker dans la CI | ✅ | Pipeline défini dans `ci.yml` (build + push vers GHCR) |
 | Déploiement continu (bonus) | ✅ | Job `deploy` via SSH dans `ci.yml` |
 
@@ -165,8 +179,8 @@ Quatre points bloquants sont à corriger avant la soutenance :
 | Interface web expert | ✅ | `templates/index.html` |
 | Scripts d'initialisation DB | ✅ | `scripts/init_db.py` |
 | Fichiers de configuration | ✅ | `requirements.txt`, `.env.example`, `docker-compose.yml` |
-| Historique Git régulier et attribuable | ❌ | Les commits récents sont : "ajout tout", "ajout monitoring", "add api key", "add test". Messages non descriptifs, nombreux changements en un seul commit. |
-| Dossier `docs/` dans le dépôt | ❌ | `docs/` est listé dans `.gitignore`. Les 5 fichiers de documentation requis (architecture, MCD, user stories, RGPD, incident) **n'apparaissent pas dans le dépôt distant**. |
+| Historique Git régulier et attribuable | ❌ *(non revérifié 24/07/2026)* | Les commits récents (au 21/06/2026) étaient peu descriptifs — non réaudité dans le cadre de cette mise à jour, hors périmètre couverture/exécution |
+| Dossier `docs/` dans le dépôt | ✅ *(mis à jour 24/07/2026)* | `docs/` est versionné (plus de `.gitignore` sur ce dossier), 9 documents de preuve présents et référencés depuis le README |
 | `README.md` complet | ✅ | Architecture, prérequis, installation, routes, auth, variables, comptes test, limites |
 
 ---
@@ -180,31 +194,28 @@ Quatre points bloquants sont à corriger avant la soutenance :
 | 3. API Data | ✅ 95 % | — |
 | 4. API Model | ⚠️ 80 % | Pas de route /predict dédiée |
 | 5. API OCR | ✅ 95 % | — |
-| 6. Interface web | ⚠️ 65 % | Filtres absents, vue audit manquante |
-| 7. Tests | ⚠️ 60 % | test_fonctionnels + test_non_regression cassés |
-| 7. CI/CD | ❌ 40 % | ci.yml au mauvais endroit |
+| 6. Interface web | ⚠️ 65 % | Filtres absents, vue audit manquante *(non revérifié 24/07/2026)* |
+| 7. Tests | ✅ 90 % *(mis à jour 24/07/2026)* | 206/206 tests passent, 82 % de couverture mesurée, seuil CI appliqué |
+| 7. CI/CD | ✅ 90 % *(mis à jour 24/07/2026)* | ci.yml déplacé dans `.github/workflows/`, se déclenche normalement |
 | 7. Docker | ✅ 90 % | — |
 | 7. Monitoring | ✅ 90 % | Prometheus optionnel absent |
 | 7. Incident | ✅ 100 % | — |
 | 8. RGPD | ✅ 95 % | — |
-| 9. Livrables repo | ❌ 55 % | docs/ gitignorés, commits non descriptifs |
+| 9. Livrables repo | ⚠️ 75 % *(mis à jour 24/07/2026)* | docs/ désormais versionné ; historique Git non réaudité |
 
 ---
 
 ## Actions prioritaires avant soutenance
 
-### Critiques (bloquants pour l'évaluation)
+### Critiques (bloquants pour l'évaluation) — état au 24/07/2026
 
-1. **Déplacer `ci.yml` → `.github/workflows/ci.yml`**
-   Le fichier CI ne sera jamais exécuté tant qu'il est à la racine.
+1. ~~**Déplacer `ci.yml` → `.github/workflows/ci.yml`**~~ ✅ **Résolu**
 
-2. **Retirer `docs/` du `.gitignore`**
-   Ajouter et committer les 5 fichiers `docs/*.md`. C'est un livrable explicitement demandé.
+2. ~~**Retirer `docs/` du `.gitignore`**~~ ✅ **Résolu**
 
-3. **Corriger ou remplacer `tests/test_fonctionnels.py` et `tests/test_non_regression.py`**
-   Ces fichiers testent l'ancienne architecture (`/predict`, `flask_app.model`). Ils doivent être réécrits pour cibler les nouvelles routes ou supprimés au profit de `tests/test_e2e.py` et `test_api.py`.
+3. ~~**Corriger ou remplacer `tests/test_fonctionnels.py` et `tests/test_non_regression.py`**~~ ✅ **Résolu**
 
-4. **Ajouter les filtres dans l'interface web analyste**
+4. **Ajouter les filtres dans l'interface web analyste** *(non revérifié au 24/07/2026)*
    L'endpoint `GET /analyste/prelevements` accepte `client_id`, `source`, `date_from`, `date_to`. L'interface doit exposer ces contrôles.
 
 ### Importants (impact sur la note)

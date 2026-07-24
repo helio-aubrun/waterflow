@@ -36,6 +36,8 @@ waterflow/
 │   ├── owasp.md                   # Correspondance OWASP API Security Top 10
 │   ├── test_coverage.md           # Matrice de traçabilité tests ↔ endpoints
 │   ├── test_plan_modele.md        # Plan de test du modèle (parties visées, périmètre, stratégie)
+│   ├── outils_test.md             # Cohérence des outils de test avec l'environnement technique
+│   ├── couverture_execution.md    # Couverture mesurée + preuve d'exécution en environnement isolé
 │   ├── accessibilite.md           # Accessibilité RGAA par partie prenante
 │   ├── monitoring_preuve.md       # Preuve de fonctionnement de la chaîne de monitorage
 │   ├── incident.md                # Procédure de gestion d'incident
@@ -138,7 +140,11 @@ Matrice de traçabilité (quel test couvre quel endpoint, et quoi précisément)
 `docs/test_coverage.md`. Plan de test du modèle ML (partie visée, périmètre
 et stratégie pour chacun des 92 tests liés au modèle, dont la distinction
 entre tests sur le vrai modèle et tests avec prédiction simulée) :
-`docs/test_plan_modele.md`.
+`docs/test_plan_modele.md`. Cohérence des outils de test choisis
+(framework, bibliothèques) avec l'environnement technique du projet :
+`docs/outils_test.md`. Couverture de test mesurée (82 %, seuil CI appliqué)
+et preuve d'exécution reproductible sur deux environnements indépendants
+(machine de dev + conteneur Docker isolé) : `docs/couverture_execution.md`.
 
 ---
 

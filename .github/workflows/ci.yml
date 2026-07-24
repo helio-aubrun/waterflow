@@ -33,7 +33,6 @@ jobs:
       - name: Tests unitaires + couverture
         env:
           DATABASE_URL:      sqlite:///:memory:
-          MLFLOW_URI:        mock
           SCALER_PATH:       mock
           OCR_SPACE_API_KEY: ""
           ANTHROPIC_API_KEY: ""
@@ -42,6 +41,7 @@ jobs:
             --cov=api \
             --cov-report=term-missing \
             --cov-report=xml \
+            --cov-fail-under=75 \
             -v
 
       - name: Upload couverture (Codecov)

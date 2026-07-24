@@ -18,7 +18,6 @@ import numpy as np
 
 # ── Environnement avant import Flask ────────────────────────────────────────
 os.environ.setdefault("DATABASE_URL",      "sqlite:///:memory:")
-os.environ.setdefault("MLFLOW_URI",        "mock")
 os.environ.setdefault("SCALER_PATH",       "mock")
 os.environ.setdefault("OCR_SPACE_API_KEY", "")
 os.environ.setdefault("ANTHROPIC_API_KEY", "")
@@ -26,6 +25,9 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "")
 os.environ.setdefault("EXPERT_TOKENS", "alice:token-alice:analyste,bob:token-bob:exploit")
 
 # ── Mocks ML ────────────────────────────────────────────────────────────────
+# predict_service.py charge le modèle/scaler directement (xgboost + joblib,
+# pas de registre MLflow) : on court-circuite ce chargement en assignant
+# directement _model/_scaler après import, pas besoin de patcher un chargeur.
 _mock_model  = MagicMock()
 _mock_model.predict.return_value        = np.array([1])
 _mock_model.predict_proba.return_value  = np.array([[0.13, 0.87]])
@@ -33,11 +35,8 @@ _mock_model.predict_proba.return_value  = np.array([[0.13, 0.87]])
 _mock_scaler = MagicMock()
 _mock_scaler.transform.side_effect = lambda x: x
 
-with patch("mlflow.xgboost.load_model", return_value=_mock_model), \
-     patch("joblib.load",               return_value=_mock_scaler), \
-     patch("mlflow.set_tracking_uri"):
-    from api.app        import create_app
-    from api.models.db  import init_db, SessionLocal, Client
+from api.app        import create_app
+from api.models.db  import init_db, SessionLocal, Client
 
 import api.services.predict_service as _ps
 _ps._model  = _mock_model
