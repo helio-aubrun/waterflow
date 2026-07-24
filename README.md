@@ -10,32 +10,51 @@ Exposée via une **API Flask unique** portant trois modules : données, prédict
 ```
 waterflow/
 ├── api/
-│   ├── app.py                  # Factory Flask + init Swagger
-│   ├── models/db.py            # Modèles SQLAlchemy (RGPD)
-│   ├── middleware/auth.py      # Auth clé API (clients) + Bearer (experts)
-│   ├── routes/routes.py        # Toutes les routes API
+│   ├── app.py                     # Factory Flask + init Swagger
+│   ├── models/db.py               # Modèles SQLAlchemy (RGPD)
+│   ├── middleware/auth.py         # Auth clé API (clients) + Bearer (experts)
+│   ├── routes/routes.py           # Toutes les routes API
 │   └── services/
-│       ├── ocr_service.py      # OCR.space (primaire) + Claude Vision (fallback)
-│       └── predict_service.py  # XGBoost via MLflow
-├── templates/index.html        # Interface web expert
+│       ├── ocr_service.py         # OCR.space (primaire) + Claude Vision (fallback)
+│       ├── predict_service.py     # XGBoost via MLflow
+│       └── monitoring_service.py  # Data drift (PSI), dégradation, alertes
+├── templates/index.html           # Interface web expert
 ├── scripts/
-│   └── init_db.py              # Initialisation DB + données de test
+│   └── init_db.py                 # Initialisation DB + données de test
 ├── tests/
-│   ├── test_api.py             # Tests intégration complets (Waterflow 2)
-│   ├── test_e2e.py             # Test bout en bout : OCR → prédiction
-│   ├── test_unitaires.py       # Tests unitaires (modèle)
-│   ├── test_fonctionnels.py    # Tests fonctionnels (routes)
-│   └── test_non_regression.py  # Tests de non-régression
-├── samples/                    # Fiches labo anonymisées (exemples OCR)
-├── model_artifacts/            # Modèle XGBoost + scaler
-├── swagger.yaml                # Documentation OpenAPI — accessible sur /apidocs
-├── main.py                     # Point d'entrée Gunicorn
+│   ├── test_api.py                # Tests intégration complets
+│   ├── test_e2e.py                # Test bout en bout : OCR → prédiction
+│   ├── test_unitaires.py          # Tests unitaires (modèle)
+│   ├── test_fonctionnels.py       # Tests fonctionnels (routes)
+│   ├── test_non_regression.py     # Tests de non-régression
+│   └── test_model_validation.py   # Validation du modèle et de ses artefacts
+├── conftest.py                     # Fixtures pytest partagées
+├── pytest.ini                      # Configuration pytest
+├── docs/
+│   ├── architecture.md            # Documentation d'architecture
+│   ├── rgpd.md                    # Conformité RGPD détaillée
+│   ├── owasp.md                   # Correspondance OWASP API Security Top 10
+│   ├── test_coverage.md           # Matrice de traçabilité tests ↔ endpoints
+│   ├── incident.md                # Procédure de gestion d'incident
+│   └── user_stories.md            # User stories du projet
+├── notebooks/                      # Exploration des données, entraînement du modèle
+├── data/                           # Jeu de données source (water_potability.csv)
+├── samples/                        # Fiches labo (exemples OCR, dont un PDF de test manuel)
+├── model_artifacts/                # Modèle XGBoost + scaler + statistiques d'entraînement
+├── swagger.yaml                    # Documentation OpenAPI — accessible sur /apidocs
+├── main.py                         # Point d'entrée Gunicorn
 ├── Dockerfile
 ├── docker-compose.yml
-├── ci.yml                      # CI/CD GitHub Actions
+├── .github/workflows/
+│   ├── ci.yml                     # CI/CD principal (tests, build)
+│   └── model_ci.yml               # CI dédiée à la validation du modèle
+├── RAPPORT_CONFORMITE.md          # Rapport de conformité du projet
 ├── requirements.txt
 └── .env.example
 ```
+
+Artefacts générés au runtime (bases SQLite, tracking MLflow) ne sont pas
+repris ci-dessus — voir `.gitignore`.
 
 ---
 
@@ -108,9 +127,12 @@ pytest tests/ -v --cov=api
 # Test bout en bout uniquement
 pytest tests/test_e2e.py -v
 
-# Tests d'intégration Waterflow 2
+# Tests d'intégration
 pytest tests/test_api.py -v
 ```
+
+Matrice de traçabilité (quel test couvre quel endpoint, et quoi précisément) :
+`docs/test_coverage.md`.
 
 ---
 
@@ -121,6 +143,7 @@ Documentation interactive complète : **`/apidocs`** (Swagger UI)
 | Méthode | Route                              | Auth               | Description                       |
 |---------|------------------------------------|--------------------|-----------------------------------|
 | GET     | /health                            | public             | État du service                   |
+| POST    | /predict                           | X-API-Key          | Prédiction directe, sans stockage |
 | GET     | /me                                | X-API-Key          | Profil client                     |
 | GET     | /me/prelevements                   | X-API-Key          | Mes prélèvements (paginés)        |
 | GET     | /me/prelevements/`<id>`            | X-API-Key          | Détail d'un prélèvement           |
@@ -137,9 +160,11 @@ Documentation interactive complète : **`/apidocs`** (Swagger UI)
 | POST    | /admin/clients/`<id>`/apikey       | Bearer (tout expert) | Générer/régénérer clé API       |
 | GET     | /analyste/prelevements             | Bearer (analyste+) | Tous les prélèvements             |
 | GET     | /analyste/prelevements/`<id>`      | Bearer (analyste+) | Détail complet (+ OCR brut)      |
+| GET     | /analyste/clients/`<id>`/prelevements | Bearer (analyste+) | Prélèvements d'un client donné |
 | GET     | /analyste/dashboard                | Bearer (analyste+) | KPIs agrégés                     |
 | GET     | /exploitation/metrics              | Bearer (exploit)   | Métriques système                 |
 | GET     | /exploitation/audit                | Bearer (exploit)   | Journal d'accès RGPD              |
+| GET     | /exploitation/monitoring           | Bearer (exploit)   | Data drift, dégradation, alertes modèle |
 
 ---
 
@@ -171,6 +196,7 @@ Rôles : `analyste` (dashboards, prélèvements) | `exploit` (métriques, audit 
 | `MLFLOW_URI`        | non         | `models:/WaterQualityXGBoost/1`     | URI du modèle MLflow                |
 | `MLFLOW_TRACKING_URI` | non       | `sqlite:///mlflow_water.db`         | Backend MLflow                      |
 | `SCALER_PATH`       | non         | `model_artifacts/robust_scaler.pkl` | Chemin vers le RobustScaler         |
+| `TRAINING_STATS_PATH` | non       | `model_artifacts/training_stats.json` | Baseline utilisée par `/exploitation/monitoring` (PSI) |
 | `OCR_SPACE_API_KEY` | non*        | `""`                                | Clé API OCR.space                   |
 | `ANTHROPIC_API_KEY` | non*        | `""`                                | Clé Claude Vision (fallback OCR)    |
 | `EXPERT_TOKENS`     | **oui**     | —                                   | `login:token:role,...`              |
@@ -184,7 +210,7 @@ Rôles : `analyste` (dashboards, prélèvements) | `exploit` (métriques, audit 
 
 ## Comptes et clés de test
 
-Après `python scripts/init_db.py`, deux clients sont créés (clés affichées en sortie) :
+Après `python scripts/init_db.py`, trois clients sont créés (clés affichées en sortie) :
 
 | ID client    | Dénomination                 | Statut  |
 |--------------|------------------------------|---------|
@@ -198,12 +224,13 @@ Les tokens experts sont définis dans `.env` via `EXPERT_TOKENS`.
 
 ## Fiches labo exemples (OCR)
 
-Le dossier `samples/` contient deux fiches anonymisées :
+Le dossier `samples/` contient trois fiches :
 
 | Fichier                          | Description                                 |
 |----------------------------------|---------------------------------------------|
 | `fiche_labo_exemple_1.txt`       | Fiche complète → `prediction_possible=true` |
 | `fiche_labo_exemple_2_partiel.txt` | Fiche partielle → `prediction_possible=false` |
+| `fiche_non_potable_test.pdf`     | Fiche PDF de test manuel (non référencée dans le code ou les tests automatisés) |
 
 ---
 
