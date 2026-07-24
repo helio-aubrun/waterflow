@@ -17,6 +17,7 @@ Stratégie :
 
 import os
 import json
+import secrets
 import pytest
 import numpy as np
 import pandas as pd
@@ -74,6 +75,30 @@ API_ERROR_CONTRACT = {
 }
 
 
+def _auth_headers() -> dict:
+    """Cree (ou reutilise) un client de test actif, retourne un header X-API-Key valide."""
+    from api.models.db import Client, SessionLocal
+
+    db = SessionLocal()
+    try:
+        client_row = db.query(Client).filter_by(id_client="TEST-NON-REGRESSION").first()
+        if client_row is None:
+            client_row = Client(
+                id_client="TEST-NON-REGRESSION",
+                denomination="Client de test (test_non_regression)",
+                adresse="N/A",
+                actif=True,
+            )
+            db.add(client_row)
+        raw_key = secrets.token_urlsafe(32)
+        client_row.set_api_key(raw_key)
+        client_row.actif = True
+        db.commit()
+        return {"X-API-Key": raw_key}
+    finally:
+        db.close()
+
+
 # ──────────────────────────────────────────────────────────
 # SECTION 1 — Contrat de l'API (structure immuable)
 # ──────────────────────────────────────────────────────────
@@ -101,6 +126,7 @@ class TestContratAPI:
         flask_instance = create_app()
         flask_instance.config["TESTING"] = True
         self.client = flask_instance.test_client()
+        self.headers = _auth_headers()
 
         self.valid_payload = {
             "ph": 7.0, "Hardness": 200.0, "Solids": 20000.0,
@@ -112,7 +138,8 @@ class TestContratAPI:
         return self.client.post(
             "/predict",
             data=json.dumps(self.valid_payload),
-            content_type="application/json"
+            content_type="application/json",
+            headers=self.headers,
         )
 
     def test_contrat_champs_presents(self):
@@ -160,7 +187,8 @@ class TestContratAPI:
         resp = self.client.post(
             "/predict",
             data=json.dumps(payload_invalide),
-            content_type="application/json"
+            content_type="application/json",
+            headers=self.headers,
         )
         data = json.loads(resp.data)
         assert "error" in data
@@ -183,7 +211,8 @@ class TestContratAPI:
         resp = self.client.post(
             "/predict",
             data=json.dumps(self.valid_payload),
-            content_type="application/json"
+            content_type="application/json",
+            headers=self.headers,
         )
         assert resp.status_code == 200
 

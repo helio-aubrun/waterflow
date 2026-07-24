@@ -9,6 +9,7 @@ Deux mondes d'authentification, périmètres strictement séparés :
   GET  /me/prelevements/<id>     Détail d'un prélèvement
   GET  /me/resultats             Mes résultats de prédiction
 
+  POST /predict                  Prédiction directe, sans stockage
   POST /ingest/manual            Déposer mesures JSON + prédiction
   POST /ingest/ocr               Déposer fiche PDF/image (OCR seul)
   POST /ingest/ocr-and-predict   OCR + prédiction pipeline complet
@@ -222,13 +223,16 @@ def health():
 
 
 @bp.route("/predict", methods=["POST"])
+@require_client_key
 def predict():
-    """Prédiction simple sans authentification (usage demo/test)."""
+    """Prédiction directe à partir de mesures, sans stockage du prélèvement."""
     data = request.get_json(force=True, silent=True) or {}
     try:
         result = run_prediction(data)
     except ValueError as e:
+        log_audit("client_predict", status_code=400, detail=str(e))
         return jsonify({"error": str(e)}), 400
+    log_audit("client_predict", status_code=200)
     return jsonify({
         "potable":     result["potable"],
         "label":       result["label"],

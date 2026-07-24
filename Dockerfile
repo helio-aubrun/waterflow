@@ -14,11 +14,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Code applicatif
 COPY . .
 
-# Répertoire pour artefacts ML
-RUN mkdir -p model_artifacts
+# Répertoire pour artefacts ML et pour les données persistées (volume /data)
+RUN mkdir -p model_artifacts /data
 
 # Utilisateur non-root
-RUN useradd -m -u 1000 waterflow && chown -R waterflow /app
+RUN useradd -m -u 1000 waterflow && chown -R waterflow /app /data
 USER waterflow
 
 EXPOSE 8080

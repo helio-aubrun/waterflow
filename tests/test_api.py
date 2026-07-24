@@ -219,6 +219,14 @@ class TestAdminClients:
         r = http.get("/admin/clients/INEXISTANT", headers=BOB_HEADER)
         assert r.status_code == 404
 
+    def test_client_existant_200(self, http, client_key):
+        """Cas nominal : recuperer le profil d'un client existant (par id_client metier)."""
+        r = http.get("/admin/clients/TEST-001", headers=BOB_HEADER)
+        assert r.status_code == 200
+        d = r.get_json()
+        assert d["id_client"] == "TEST-001"
+        assert "api_key" not in d
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # CLIENTS — /me et /ingest/*
@@ -293,6 +301,30 @@ class TestClientIngestion:
         r = http.post("/ingest/ocr", headers=client_header)
         assert r.status_code == 400
 
+    def test_ingest_ocr_valide_201(self, http, client_header):
+        """Cas nominal : fichier valide -> prelevement cree, PAS de prediction (route sans predict)."""
+        from io import BytesIO
+        mock_extraction = {
+            "date_prelevement": "2025-03-18",
+            "lieu": "Puits privé — Laboratoire AquaTest",
+            "mesures": dict(VALID_MESURES),
+            "observations": "Eau claire.",
+            "warnings": [],
+            "raw_text": "Laboratoire AquaTest\npH : 7,2",
+        }
+        with patch("api.routes.routes.extract_from_document", return_value=mock_extraction):
+            r = http.post(
+                "/ingest/ocr",
+                data={"file": (BytesIO(b"%PDF-1.4\n"), "fiche.pdf", "application/pdf")},
+                content_type="multipart/form-data",
+                headers=client_header,
+            )
+        assert r.status_code == 201, r.get_json()
+        d = r.get_json()
+        assert "prelevement_id" in d
+        assert "ocr" in d
+        assert "prediction" not in d
+
     def test_ingest_ocr_type_invalide(self, http, client_header):
         from io import BytesIO
         r = http.post("/ingest/ocr",
@@ -316,22 +348,36 @@ class TestClientConsultation:
         r = http.get("/me/resultats", headers=client_header)
         assert r.status_code == 200
 
-    def test_detail_prelevement_autre_client_refuse(self, http, http_app=None):
-        """Un client ne peut pas accéder aux prélèvements d'un autre."""
-        # Crée un second client
+    def test_detail_prelevement_autre_client_refuse(self, http, client_header):
+        """
+        BOLA (OWASP API1) : un second client, authentifie avec sa PROPRE cle
+        valide, ne doit pas pouvoir consulter le detail d'un prelevement
+        appartenant a TEST-001 (routes.py: `if p.client_id != g.client.id: 403`).
+        """
+        # Prelevement appartenant a TEST-001
+        r_ingest = http.post("/ingest/manual", json=VALID_MESURES, headers=client_header)
+        assert r_ingest.status_code == 201
+        prelevement_id = r_ingest.get_json()["prelevement_id"]
+
+        # Second client reel, avec sa propre cle valide (pas une cle aleatoire invalide)
         db = SessionLocal()
-        c2 = Client(id_client="TEST-002", denomination="Autre",
+        c2 = Client(id_client="TEST-BOLA", denomination="Autre collectivite",
                     adresse="2 rue B", actif=True)
-        raw = secrets.token_urlsafe(16)
-        c2.set_api_key(raw)
+        raw_c2 = secrets.token_urlsafe(16)
+        c2.set_api_key(raw_c2)
         db.add(c2)
         db.commit()
         db.close()
 
-        # Tente d'accéder à un prélèvement de TEST-001 avec la clé de TEST-002
-        r_prevs = http.get("/me/prelevements",
-                            headers={"X-API-Key": secrets.token_urlsafe(16)})
-        assert r_prevs.status_code == 401   # clé invalide, pas de fuite d'info
+        r_detail = http.get(f"/me/prelevements/{prelevement_id}",
+                             headers={"X-API-Key": raw_c2})
+        assert r_detail.status_code == 403
+
+    def test_detail_prelevement_cle_invalide_401(self, http):
+        """Cle totalement inconnue : 401, distinct du 403 (BOLA) ci-dessus."""
+        r = http.get("/me/prelevements/peu-importe-quel-id",
+                     headers={"X-API-Key": secrets.token_urlsafe(16)})
+        assert r.status_code == 401
 
     def test_pagination(self, http, client_header):
         r = http.get("/me/prelevements?page=1&per_page=5", headers=client_header)
@@ -371,10 +417,37 @@ class TestAnalyste:
         r = http.get("/analyste/prelevements", headers=client_header)
         assert r.status_code == 401
 
+    def test_prelevement_detail_nominal(self, http, client_header):
+        """Cas nominal : l'analyste voit le detail complet, y compris l'OCR brut."""
+        r_ingest = http.post("/ingest/manual", json=VALID_MESURES, headers=client_header)
+        assert r_ingest.status_code == 201
+        prelevement_id = r_ingest.get_json()["prelevement_id"]
+
+        r = http.get(f"/analyste/prelevements/{prelevement_id}", headers=ALICE_HEADER)
+        assert r.status_code == 200
+        assert r.get_json()["id"] == prelevement_id
+
+    def test_prelevement_detail_introuvable_404(self, http):
+        r = http.get("/analyste/prelevements/id-inexistant", headers=ALICE_HEADER)
+        assert r.status_code == 404
+
+    def test_prelevement_detail_client_interdit(self, http, client_header):
+        r = http.get("/analyste/prelevements/peu-importe-quel-id", headers=client_header)
+        assert r.status_code == 401
+
     def test_client_inconnu_404(self, http):
         r = http.get("/analyste/clients/INEXISTANT/prelevements",
                      headers=ALICE_HEADER)
         assert r.status_code == 404
+
+    def test_client_existant_prelevements_nominal(self, http, client_key):
+        """Cas nominal : un client existant retourne sa liste (paginee) de prelevements."""
+        r = http.get("/analyste/clients/TEST-001/prelevements",
+                     headers=ALICE_HEADER)
+        assert r.status_code == 200
+        d = r.get_json()
+        assert "items" in d
+        assert "total" in d
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -414,6 +487,37 @@ class TestExploitation:
         r = http.get("/exploitation/audit?page=1&per_page=10", headers=BOB_HEADER)
         assert r.status_code == 200
         assert r.get_json()["per_page"] == 10
+
+    def test_monitoring_exploit(self, http):
+        r = http.get("/exploitation/monitoring", headers=BOB_HEADER)
+        assert r.status_code == 200
+        d = r.get_json()
+        assert "global_status" in d
+        assert "drift" in d
+        assert "confidence" in d
+        assert "alerts" in d
+        assert "baseline" in d
+        assert "thresholds" in d
+
+    def test_monitoring_analyste_interdit(self, http):
+        """Le monitoring systeme est reserve au role exploit, pas a l'analyste."""
+        r = http.get("/exploitation/monitoring", headers=ALICE_HEADER)
+        assert r.status_code == 403
+
+    def test_monitoring_client_interdit(self, http, client_header):
+        r = http.get("/exploitation/monitoring", headers=client_header)
+        assert r.status_code == 401
+
+    def test_monitoring_window_days_parametre(self, http):
+        r = http.get("/exploitation/monitoring?window_days=7", headers=BOB_HEADER)
+        assert r.status_code == 200
+        assert r.get_json()["window_days"] == 7
+
+    def test_monitoring_window_days_borne_max(self, http):
+        """window_days est plafonne a 365 (cf. min(365, max(1, ...)) dans la route)."""
+        r = http.get("/exploitation/monitoring?window_days=9999", headers=BOB_HEADER)
+        assert r.status_code == 200
+        assert r.get_json()["window_days"] == 365
 
 
 # ════════════════════════════════════════════════════════════════════════════

@@ -1,6 +1,6 @@
 openapi: "2.0"
 info:
-  title: "Waterflow 2 — API MLOps Qualité de l'Eau"
+  title: "HWP — API MLOps Qualité de l'Eau"
   description: |
     Plateforme MLOps pour la classification de la potabilité de l'eau.
 
@@ -17,7 +17,7 @@ info:
     Rôles experts disponibles : `analyste`, `exploit` (super-rôle qui inclut analyste).
   version: "2.0.0"
   contact:
-    name: "Waterflow 2 — La Plateforme B3IA"
+    name: "HWP — La Plateforme B3IA"
 
 host: "localhost:8080"
 basePath: "/"
@@ -181,6 +181,33 @@ paths:
       responses:
         200:
           description: Compte anonymisé
+        401:
+          $ref: "#/responses/Unauthorized"
+
+  /predict:
+    post:
+      tags: [Client]
+      summary: Prédiction directe à partir de mesures, sans stockage
+      description: |
+        Calcule une prédiction de potabilité à partir de mesures fournies
+        directement dans le corps de la requête, sans créer de prélèvement
+        en base (contrairement à `/ingest/manual`). Utile pour un test rapide
+        ou une intégration ne nécessitant pas de traçabilité en base.
+      security:
+        - ApiKeyHeader: []
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/Mesures"
+      responses:
+        200:
+          description: Prédiction calculée
+          schema:
+            $ref: "#/definitions/PredictResponse"
+        400:
+          $ref: "#/responses/BadRequest"
         401:
           $ref: "#/responses/Unauthorized"
 
@@ -437,34 +464,60 @@ paths:
         404:
           $ref: "#/responses/NotFound"
 
+  /analyste/clients/{client_id}/prelevements:
+    get:
+      tags: [Analyste]
+      summary: Prélèvements d'un client spécifique
+      description: |
+        Filtre les prélèvements par `id_client` métier (ex: `CLIENT-001`),
+        pas par l'UUID interne. Réservé au rôle `analyste` (ou `exploit`).
+      security:
+        - BearerToken: []
+      parameters:
+        - name: client_id
+          in: path
+          required: true
+          type: string
+          description: id_client métier (ex CLIENT-001), pas l'UUID interne
+        - name: page
+          in: query
+          type: integer
+          default: 1
+        - name: per_page
+          in: query
+          type: integer
+          default: 20
+      responses:
+        200:
+          description: Liste paginée des prélèvements de ce client
+          schema:
+            $ref: "#/definitions/PaginatedPrelevements"
+        401:
+          $ref: "#/responses/Unauthorized"
+        404:
+          description: Client introuvable (id_client inconnu)
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Client 'CLIENT-999' introuvable."
+
   /analyste/dashboard:
     get:
       tags: [Analyste]
       summary: KPIs qualité agrégés
       description: |
-        Retourne : taux de potabilité, moyennes des 9 paramètres chimiques,
-        répartition par source (MANUAL/OCR/API), 15 derniers prélèvements.
+        Retourne : total des prélèvements/prédictions, taux de potabilité,
+        moyennes de 5 paramètres physico-chimiques, répartition par source
+        d'ingestion (manual/ocr/api), 15 derniers prélèvements.
       security:
         - BearerToken: []
       responses:
         200:
           description: Dashboard agrégé
           schema:
-            type: object
-            properties:
-              total_prelevements:
-                type: integer
-              taux_potabilite:
-                type: number
-                format: float
-              moyennes_chimiques:
-                type: object
-              repartition_source:
-                type: object
-              derniers_prelevements:
-                type: array
-                items:
-                  $ref: "#/definitions/Prelevement"
+            $ref: "#/definitions/DashboardResponse"
 
   # ── EXPLOITATION ──────────────────────────────────────────────────────────────
 
@@ -472,31 +525,21 @@ paths:
     get:
       tags: [Exploitation]
       summary: Métriques de performance (latence, volume, erreurs)
+      description: |
+        Paramètre optionnel `?limit=N` (défaut 5000, plafonné à 50000) :
+        nombre de requêtes les plus récentes prises en compte pour le calcul.
       security:
         - BearerToken: []
+      parameters:
+        - name: limit
+          in: query
+          type: integer
+          default: 5000
       responses:
         200:
-          description: Métriques par route
+          description: Métriques agrégées par route + indicateurs métier globaux
           schema:
-            type: object
-            properties:
-              metrics_by_route:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    route:
-                      type: string
-                    count:
-                      type: integer
-                    p50_ms:
-                      type: number
-                    p95_ms:
-                      type: number
-                    avg_ms:
-                      type: number
-                    error_rate:
-                      type: number
+            $ref: "#/definitions/MetricsResponse"
         401:
           $ref: "#/responses/Unauthorized"
         403:
@@ -535,6 +578,37 @@ paths:
       responses:
         200:
           description: Journal paginé
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+
+  /exploitation/monitoring:
+    get:
+      tags: [Exploitation]
+      summary: Monitoring du modèle ML (data drift, dégradation, alertes)
+      description: |
+        Trois axes calculés sur une fenêtre glissante :
+        - **Data drift** : indice PSI (Population Stability Index) par
+          feature, comparé au jeu d'entraînement (`model_artifacts/training_stats.json`).
+        - **Dégradation** : distribution des scores de confiance du modèle et
+          taux de potabilité observé.
+        - **Alertes** : déclenchées automatiquement selon des seuils PSI et
+          de confiance (voir `thresholds` dans la réponse).
+        Réservé au rôle `exploit` (pas accessible à `analyste`).
+      security:
+        - BearerToken: []
+      parameters:
+        - name: window_days
+          in: query
+          type: integer
+          default: 30
+          description: Fenêtre glissante en jours (plafonnée entre 1 et 365)
+      responses:
+        200:
+          description: Rapport de monitoring complet
+          schema:
+            $ref: "#/definitions/MonitoringResponse"
         401:
           $ref: "#/responses/Unauthorized"
         403:
@@ -620,6 +694,200 @@ definitions:
       at:
         type: string
         format: date-time
+
+  PredictResponse:
+    type: object
+    properties:
+      potable:
+        type: integer
+        enum: [0, 1]
+      label:
+        type: string
+        enum: ["Potable", "Non potable"]
+      probability:
+        type: number
+        format: float
+        example: 0.78
+
+  DashboardResponse:
+    type: object
+    description: Reflete exactement api/routes/routes.py::analyste_dashboard()
+    properties:
+      total_prelevements:
+        type: integer
+      total_predictions:
+        type: integer
+      potable_count:
+        type: integer
+      non_potable_count:
+        type: integer
+      potable_rate:
+        type: number
+        format: float
+        description: null si aucune prediction n'existe encore
+      clients_actifs:
+        type: integer
+      sources:
+        type: object
+        description: "Comptage par source d'ingestion, ex: {manual: 3, ocr: 2}"
+        additionalProperties:
+          type: integer
+      moyennes:
+        type: object
+        properties:
+          ph:
+            type: number
+          turbidity:
+            type: number
+          conductivity:
+            type: number
+          chloramines:
+            type: number
+          hardness:
+            type: number
+      recents:
+        type: array
+        description: 15 derniers prelevements (toutes sources confondues)
+        items:
+          $ref: "#/definitions/Prelevement"
+
+  DriftFeature:
+    type: object
+    description: Reflete exactement monitoring_service.py::compute_drift()
+    properties:
+      psi:
+        type: number
+        format: float
+      level:
+        type: string
+        enum: [ok, warn, critical, insufficient_data]
+      n_samples:
+        type: integer
+      prod_mean:
+        type: number
+        description: null si aucune mesure sur la fenetre
+      train_mean:
+        type: number
+      mean_delta:
+        type: number
+        description: null si prod_mean est null
+
+  MonitoringResponse:
+    type: object
+    description: Reflete exactement monitoring_service.py::full_report()
+    properties:
+      window_days:
+        type: integer
+      global_status:
+        type: string
+        enum: [ok, warn, critical]
+      n_alerts:
+        type: integer
+      n_insufficient:
+        type: integer
+        description: Nombre de features en "insufficient_data" (pas assez d'echantillons pour un PSI fiable)
+      alerts:
+        type: array
+        items:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [data_drift, confidence, potability_drift]
+            severity:
+              type: string
+              enum: [warn, critical]
+            feature:
+              type: string
+            message:
+              type: string
+            detail:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+      drift:
+        type: object
+        description: "Cle = nom de feature (ph, Hardness, ...)"
+        additionalProperties:
+          $ref: "#/definitions/DriftFeature"
+      confidence:
+        type: object
+        properties:
+          n_predictions:
+            type: integer
+          status:
+            type: string
+            example: "no_data"
+            description: present uniquement si n_predictions vaut 0
+          avg_confidence:
+            type: number
+          pct_uncertain:
+            type: number
+          potability_rate:
+            type: number
+          confidence_level:
+            type: string
+            enum: [ok, warn]
+      baseline:
+        type: object
+        properties:
+          potability_rate:
+            type: number
+          n_train_samples:
+            type: integer
+      thresholds:
+        type: object
+        properties:
+          psi_warn:
+            type: number
+          psi_ok:
+            type: number
+          min_samples_psi:
+            type: integer
+          confidence_warn:
+            type: number
+          potability_drift_warn:
+            type: number
+
+  MetricsResponse:
+    type: object
+    description: Reflete exactement api/routes/routes.py::exploitation_metrics()
+    properties:
+      routes:
+        type: object
+        description: "Cle = '<METHODE> <route>', ex: 'GET /health'"
+        additionalProperties:
+          type: object
+          properties:
+            count:
+              type: integer
+            errors:
+              type: integer
+            error_rate:
+              type: number
+              format: float
+            p50_ms:
+              type: number
+            p95_ms:
+              type: number
+            avg_ms:
+              type: number
+      sample_size:
+        type: integer
+        description: Nombre de requetes prises en compte (borne par ?limit=)
+      clients_total:
+        type: integer
+      clients_actifs:
+        type: integer
+      total_prelevements:
+        type: integer
+      total_predictions:
+        type: integer
+      potable_rate:
+        type: number
+        format: float
+        description: null si aucune prediction n'existe encore
 
   Prelevement:
     type: object

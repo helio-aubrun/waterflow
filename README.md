@@ -214,7 +214,16 @@ Le dossier `samples/` contient deux fiches anonymisées :
 - Table `audit_logs` immuable — journal de tous les accès
 - Droit à l'effacement via `DELETE /me/rgpd`
 - Conservation des logs : 12 mois glissants
-- Documentation complète : `docs/rgpd.md` (local, non versionné)
+- Documentation complète : `docs/rgpd.md`
+
+---
+
+## Sécurité — OWASP API Security Top 10
+
+Correspondance entre les mesures de sécurité en place (authentification,
+autorisation par objet/fonction, limites d'upload...) et les catégories de
+l'OWASP API Security Top 10 (2023), avec les manques identifiés (rate
+limiting, CORS...) : documentation complète dans `docs/owasp.md`.
 
 ---
 

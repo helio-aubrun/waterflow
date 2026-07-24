@@ -7,12 +7,13 @@ Objectif : tester les endpoints de l'API Flask de bout en bout,
 Couverture :
   - GET  /health
   - GET  /
-  - POST /predict  (cas nominaux + cas d'erreur)
+  - POST /predict  (cas nominaux + cas d'erreur, authentifiés X-API-Key)
   - Comportement HTTP (codes de statut, Content-Type, JSON)
 =============================================================
 """
 
 import json
+import secrets
 import pytest
 import numpy as np
 from unittest.mock import MagicMock
@@ -40,6 +41,34 @@ VALID_PAYLOAD = {
 }
 
 
+def _auth_headers() -> dict:
+    """
+    Cree (ou reutilise) un client de test actif en base et retourne un
+    header X-API-Key valide. /predict exige desormais une authentification
+    (@require_client_key), au meme titre que /ingest/*.
+    """
+    from api.models.db import Client, SessionLocal
+
+    db = SessionLocal()
+    try:
+        client_row = db.query(Client).filter_by(id_client="TEST-PREDICT").first()
+        if client_row is None:
+            client_row = Client(
+                id_client="TEST-PREDICT",
+                denomination="Client de test (test_fonctionnels)",
+                adresse="N/A",
+                actif=True,
+            )
+            db.add(client_row)
+        raw_key = secrets.token_urlsafe(32)
+        client_row.set_api_key(raw_key)
+        client_row.actif = True
+        db.commit()
+        return {"X-API-Key": raw_key}
+    finally:
+        db.close()
+
+
 def create_app_with_mocks(predict_value=1, proba_value=0.87):
     mock_model = MagicMock()
     mock_model.predict.return_value = np.array([predict_value])
@@ -56,8 +85,9 @@ def create_app_with_mocks(predict_value=1, proba_value=0.87):
     flask_instance = create_app()
     flask_instance.config["TESTING"] = True
     client = flask_instance.test_client()
+    headers = _auth_headers()
 
-    return client, mock_model, mock_scaler
+    return client, mock_model, mock_scaler, headers
 
 
 # ──────────────────────────────────────────────────────────
@@ -69,7 +99,7 @@ class TestEndpointHealth:
 
     @pytest.fixture(autouse=True)
     def setup(self):
-        self.client, self.model, self.scaler = create_app_with_mocks()
+        self.client, self.model, self.scaler, self.headers = create_app_with_mocks()
 
     def test_health_statut_200(self):
         resp = self.client.get("/health")
@@ -105,7 +135,7 @@ class TestEndpointIndex:
 
     @pytest.fixture(autouse=True)
     def setup(self):
-        self.client, _, _ = create_app_with_mocks()
+        self.client, _, _, self.headers = create_app_with_mocks()
 
     def test_index_statut_200_ou_redirect(self):
         resp = self.client.get("/")
@@ -117,11 +147,11 @@ class TestEndpointIndex:
 # ──────────────────────────────────────────────────────────
 
 class TestEndpointPredictNominal:
-    """Teste les scénarios normaux de prédiction."""
+    """Teste les scénarios normaux de prédiction (authentifiés X-API-Key)."""
 
     @pytest.fixture(autouse=True)
     def setup_potable(self):
-        self.client_potable, self.model_potable, _ = create_app_with_mocks(
+        self.client_potable, self.model_potable, _, self.headers = create_app_with_mocks(
             predict_value=1, proba_value=0.87
         )
 
@@ -129,7 +159,8 @@ class TestEndpointPredictNominal:
         resp = self.client_potable.post(
             "/predict",
             data=json.dumps(VALID_PAYLOAD),
-            content_type="application/json"
+            content_type="application/json",
+            headers=self.headers,
         )
         assert resp.status_code == 200
 
@@ -137,7 +168,8 @@ class TestEndpointPredictNominal:
         resp = self.client_potable.post(
             "/predict",
             data=json.dumps(VALID_PAYLOAD),
-            content_type="application/json"
+            content_type="application/json",
+            headers=self.headers,
         )
         assert resp.content_type == "application/json"
 
@@ -145,7 +177,8 @@ class TestEndpointPredictNominal:
         resp = self.client_potable.post(
             "/predict",
             data=json.dumps(VALID_PAYLOAD),
-            content_type="application/json"
+            content_type="application/json",
+            headers=self.headers,
         )
         data = json.loads(resp.data)
         assert "potable" in data
@@ -156,18 +189,20 @@ class TestEndpointPredictNominal:
         resp = self.client_potable.post(
             "/predict",
             data=json.dumps(VALID_PAYLOAD),
-            content_type="application/json"
+            content_type="application/json",
+            headers=self.headers,
         )
         data = json.loads(resp.data)
         assert data["potable"] == 1
         assert data["label"] == "Potable"
 
     def test_predict_label_non_potable(self):
-        client, _, _ = create_app_with_mocks(predict_value=0, proba_value=0.12)
+        client, _, _, headers = create_app_with_mocks(predict_value=0, proba_value=0.12)
         resp = client.post(
             "/predict",
             data=json.dumps(VALID_PAYLOAD),
-            content_type="application/json"
+            content_type="application/json",
+            headers=headers,
         )
         data = json.loads(resp.data)
         assert data["potable"] == 0
@@ -177,7 +212,8 @@ class TestEndpointPredictNominal:
         resp = self.client_potable.post(
             "/predict",
             data=json.dumps(VALID_PAYLOAD),
-            content_type="application/json"
+            content_type="application/json",
+            headers=self.headers,
         )
         data = json.loads(resp.data)
         assert 0.0 <= data["probability"] <= 1.0
@@ -186,13 +222,14 @@ class TestEndpointPredictNominal:
         self.client_potable.post(
             "/predict",
             data=json.dumps(VALID_PAYLOAD),
-            content_type="application/json"
+            content_type="application/json",
+            headers=self.headers,
         )
         assert self.model_potable.predict.call_count == 1
 
     def test_predict_scaler_appele_avant_model(self):
         """Le scaler doit être appelé avant le modèle."""
-        client, model, scaler = create_app_with_mocks()
+        client, model, scaler, headers = create_app_with_mocks()
         call_order = []
         scaler.transform.side_effect = lambda x: (call_order.append("scaler"), np.zeros((1, 9)))[1]
         model.predict.side_effect = lambda x: (call_order.append("model"), np.array([1]))[1]
@@ -200,7 +237,8 @@ class TestEndpointPredictNominal:
         client.post(
             "/predict",
             data=json.dumps(VALID_PAYLOAD),
-            content_type="application/json"
+            content_type="application/json",
+            headers=headers,
         )
         assert call_order.index("scaler") < call_order.index("model")
 
@@ -208,9 +246,28 @@ class TestEndpointPredictNominal:
         """L'API doit accepter le JSON même sans Content-Type explicite (force=True)."""
         resp = self.client_potable.post(
             "/predict",
-            data=json.dumps(VALID_PAYLOAD)
+            data=json.dumps(VALID_PAYLOAD),
+            headers=self.headers,
         )
         assert resp.status_code == 200
+
+    def test_predict_sans_cle_api_retourne_401(self):
+        """Sans X-API-Key, /predict doit être refusée (modèle protégé)."""
+        resp = self.client_potable.post(
+            "/predict",
+            data=json.dumps(VALID_PAYLOAD),
+            content_type="application/json",
+        )
+        assert resp.status_code == 401
+
+    def test_predict_mauvaise_cle_api_retourne_401(self):
+        resp = self.client_potable.post(
+            "/predict",
+            data=json.dumps(VALID_PAYLOAD),
+            content_type="application/json",
+            headers={"X-API-Key": "fausse-cle"},
+        )
+        assert resp.status_code == 401
 
 
 # ──────────────────────────────────────────────────────────
@@ -222,13 +279,14 @@ class TestEndpointPredictErreurs:
 
     @pytest.fixture(autouse=True)
     def setup(self):
-        self.client, _, _ = create_app_with_mocks()
+        self.client, _, _, self.headers = create_app_with_mocks()
 
     def _post(self, payload):
         return self.client.post(
             "/predict",
             data=json.dumps(payload),
-            content_type="application/json"
+            content_type="application/json",
+            headers=self.headers,
         )
 
     def test_feature_manquante_retourne_400(self):
@@ -282,11 +340,12 @@ class TestIntegrationModelAPI:
         (0, 0.05, "Non potable"),
     ])
     def test_coherence_prediction_label_probabilite(self, pred, proba, expected_label):
-        client, _, _ = create_app_with_mocks(predict_value=pred, proba_value=proba)
+        client, _, _, headers = create_app_with_mocks(predict_value=pred, proba_value=proba)
         resp = client.post(
             "/predict",
             data=json.dumps(VALID_PAYLOAD),
-            content_type="application/json"
+            content_type="application/json",
+            headers=headers,
         )
         data = json.loads(resp.data)
         assert data["label"] == expected_label
@@ -295,11 +354,12 @@ class TestIntegrationModelAPI:
     def test_probabilite_reflete_classe_positive(self):
         """La probabilité retournée doit correspondre à P(potable=1)."""
         expected_proba = 0.7654
-        client, _, _ = create_app_with_mocks(predict_value=1, proba_value=expected_proba)
+        client, _, _, headers = create_app_with_mocks(predict_value=1, proba_value=expected_proba)
         resp = client.post(
             "/predict",
             data=json.dumps(VALID_PAYLOAD),
-            content_type="application/json"
+            content_type="application/json",
+            headers=headers,
         )
         data = json.loads(resp.data)
         assert abs(data["probability"] - round(expected_proba, 4)) < 1e-4
