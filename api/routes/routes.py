@@ -52,7 +52,7 @@ from api.middleware.auth import (
     require_client_key, require_expert, timed, log_audit,
 )
 from api.services.ocr_service     import extract_from_document, ACCEPTED_MIME
-from api.services.predict_service import run_prediction, MLFLOW_MODEL_URI
+from api.services.predict_service import run_prediction, MODEL_VERSION
 
 logger           = logging.getLogger(__name__)
 bp               = Blueprint("api", __name__)
@@ -217,7 +217,7 @@ def index():
 def health():
     return jsonify({
         "status": "ok",
-        "model":  MLFLOW_MODEL_URI,
+        "model":  MODEL_VERSION,
         "ts":     utcnow().isoformat(),
     })
 

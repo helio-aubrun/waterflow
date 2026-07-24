@@ -3,6 +3,18 @@ api/services/predict_service.py — Service de prédiction XGBoost
 
 Chargement unique du modèle au démarrage.
 Expose run_prediction() utilisé par toutes les routes.
+
+Le modèle et le scaler sont chargés DIRECTEMENT depuis model_artifacts/
+(xgboost_model.json, robust_scaler.pkl) plutôt que via le registre MLflow
+Model Registry (mlflow.xgboost.load_model("models:/...")). Le registre
+MLflow dépend d'un état local (mlflow_water.db) dont le schéma doit
+correspondre exactement à la version de mlflow installée — un
+désalignement (mlflow mis à jour sans migrer la base, registre jamais
+peuplé sur une nouvelle machine, etc.) casse toute prédiction avec une
+erreur qui n'a rien à voir avec le modèle lui-même. Les fichiers modèle
+et scaler, eux, sont versionnés dans le dépôt et ne dépendent d'aucun
+état local — ce chemin fonctionne à l'identique sur n'importe quelle
+machine, sans dépendre d'un tracking MLflow préalablement configuré.
 """
 
 import os
@@ -10,12 +22,13 @@ import logging
 
 import joblib
 import numpy as np
-import mlflow.xgboost
+import xgboost
 
 logger = logging.getLogger(__name__)
 
-MLFLOW_MODEL_URI = os.getenv("MLFLOW_URI",   "models:/WaterQualityXGBoost/1")
-SCALER_PATH      = os.getenv("SCALER_PATH",  "model_artifacts/robust_scaler.pkl")
+MODEL_PATH   = os.getenv("MODEL_PATH",  "model_artifacts/xgboost_model.json")
+SCALER_PATH  = os.getenv("SCALER_PATH", "model_artifacts/robust_scaler.pkl")
+MODEL_VERSION = os.path.basename(MODEL_PATH)
 
 FEATURES = [
     "ph", "Hardness", "Solids", "Chloramines", "Sulfate",
@@ -30,9 +43,9 @@ def _ensure_loaded() -> None:
     global _model, _scaler
     if _model is not None:
         return
-    mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow_water.db"))
-    logger.info("Chargement modèle MLflow : %s", MLFLOW_MODEL_URI)
-    _model  = mlflow.xgboost.load_model(MLFLOW_MODEL_URI)
+    logger.info("Chargement modèle XGBoost : %s", MODEL_PATH)
+    _model = xgboost.XGBClassifier()
+    _model.load_model(MODEL_PATH)
     logger.info("Chargement scaler : %s", SCALER_PATH)
     _scaler = joblib.load(SCALER_PATH)
     logger.info("Modèle prêt.")
@@ -57,5 +70,5 @@ def run_prediction(mesures: dict) -> dict:
         "potable":     prediction,
         "label":       "Potable" if prediction == 1 else "Non potable",
         "probability": round(probability, 4),
-        "model_version": MLFLOW_MODEL_URI,
+        "model_version": MODEL_VERSION,
     }

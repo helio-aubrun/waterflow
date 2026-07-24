@@ -16,7 +16,7 @@ waterflow/
 │   ├── routes/routes.py           # Toutes les routes API
 │   └── services/
 │       ├── ocr_service.py         # OCR.space (primaire) + Claude Vision (fallback)
-│       ├── predict_service.py     # XGBoost via MLflow
+│       ├── predict_service.py     # XGBoost (chargé directement depuis model_artifacts/)
 │       └── monitoring_service.py  # Data drift (PSI), dégradation, alertes
 ├── templates/index.html           # Interface web expert
 ├── scripts/
@@ -35,6 +35,7 @@ waterflow/
 │   ├── rgpd.md                    # Conformité RGPD détaillée
 │   ├── owasp.md                   # Correspondance OWASP API Security Top 10
 │   ├── test_coverage.md           # Matrice de traçabilité tests ↔ endpoints
+│   ├── accessibilite.md           # Accessibilité RGAA par partie prenante
 │   ├── incident.md                # Procédure de gestion d'incident
 │   └── user_stories.md            # User stories du projet
 ├── notebooks/                      # Exploration des données, entraînement du modèle
@@ -193,8 +194,7 @@ Rôles : `analyste` (dashboards, prélèvements) | `exploit` (métriques, audit 
 | Variable            | Obligatoire | Défaut                              | Description                         |
 |---------------------|-------------|-------------------------------------|-------------------------------------|
 | `DATABASE_URL`      | non         | `sqlite:///waterflow2.db`           | URL SQLAlchemy (SQLite ou PostgreSQL) |
-| `MLFLOW_URI`        | non         | `models:/WaterQualityXGBoost/1`     | URI du modèle MLflow                |
-| `MLFLOW_TRACKING_URI` | non       | `sqlite:///mlflow_water.db`         | Backend MLflow                      |
+| `MODEL_PATH`        | non         | `model_artifacts/xgboost_model.json` | Modèle XGBoost, chargé directement (pas via le registre MLflow) |
 | `SCALER_PATH`       | non         | `model_artifacts/robust_scaler.pkl` | Chemin vers le RobustScaler         |
 | `TRAINING_STATS_PATH` | non       | `model_artifacts/training_stats.json` | Baseline utilisée par `/exploitation/monitoring` (PSI) |
 | `OCR_SPACE_API_KEY` | non*        | `""`                                | Clé API OCR.space                   |
@@ -251,6 +251,15 @@ Correspondance entre les mesures de sécurité en place (authentification,
 autorisation par objet/fonction, limites d'upload...) et les catégories de
 l'OWASP API Security Top 10 (2023), avec les manques identifiés (rate
 limiting, CORS...) : documentation complète dans `docs/owasp.md`.
+
+---
+
+## Accessibilité (RGAA)
+
+Justification du choix de l'outil de restitution (interface web unique)
+au regard de l'accessibilité pour toutes les parties prenantes (client,
+analyste, exploitation), et vérification critère par critère avec preuve
+dans le code : documentation complète dans `docs/accessibilite.md`.
 
 ---
 

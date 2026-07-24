@@ -216,10 +216,17 @@ class TestContratAPI:
         )
         assert resp.status_code == 200
 
-    def test_contrat_mlflow_uri_inchangee(self):
-        """L'URI MLflow du modèle doit rester stable."""
+    def test_contrat_chemin_modele_inchange(self):
+        """Le chemin du modèle chargé directement doit rester stable.
+
+        predict_service.py charge le modèle depuis model_artifacts/
+        (MODEL_PATH) plutôt que via le registre MLflow Model Registry —
+        ce dernier dépend d'un état local (mlflow_water.db) dont le schéma
+        peut se désynchroniser de la version de mlflow installée, cassant
+        toute prédiction indépendamment du modèle lui-même.
+        """
         import inspect, api.services.predict_service as ps
-        assert "WaterQualityXGBoost" in inspect.getsource(ps)
+        assert "model_artifacts/xgboost_model.json" in inspect.getsource(ps)
 
 
 # ──────────────────────────────────────────────────────────
@@ -383,25 +390,21 @@ class TestMetriquesPerformance:
 # SECTION 5 — Cohérence de la configuration MLflow
 # ──────────────────────────────────────────────────────────
 
-class TestConfigurationMLflow:
+class TestConfigurationModele:
     """
-    Vérifie que la configuration MLflow (URI, nom de modèle, version)
-    reste cohérente entre les versions du code.
+    Vérifie que la configuration du modèle (chemin, scaler) reste
+    cohérente entre les versions du code. Historiquement basée sur le
+    registre MLflow (nom/version) — remplacée par un chargement direct
+    des fichiers versionnés dans model_artifacts/ (cf. predict_service.py).
     """
 
-    EXPECTED_MODEL_NAME    = "WaterQualityXGBoost"
-    EXPECTED_MODEL_VERSION = "1"
-    EXPECTED_SCALER_PATH   = "model_artifacts/robust_scaler.pkl"
+    EXPECTED_MODEL_PATH  = "model_artifacts/xgboost_model.json"
+    EXPECTED_SCALER_PATH = "model_artifacts/robust_scaler.pkl"
 
-    def test_nom_modele_mlflow_inchange(self):
-        """Le nom du modèle dans le registry ne doit pas changer."""
+    def test_chemin_modele_inchange(self):
+        """Le chemin par défaut du modèle ne doit pas changer silencieusement."""
         import inspect, api.services.predict_service as ps
-        assert self.EXPECTED_MODEL_NAME in inspect.getsource(ps)
-
-    def test_version_modele_mlflow_inchangee(self):
-        """La version du modèle référencée ne doit pas changer silencieusement."""
-        import inspect, api.services.predict_service as ps
-        assert f"/{self.EXPECTED_MODEL_VERSION}" in inspect.getsource(ps)
+        assert self.EXPECTED_MODEL_PATH in inspect.getsource(ps)
 
     def test_chemin_scaler_inchange(self):
         """Le chemin du scaler ne doit pas être modifié sans mise à jour du test."""

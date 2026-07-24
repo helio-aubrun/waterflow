@@ -55,23 +55,40 @@ def _load_training_stats() -> dict:
     return _training_stats
 
 
-def _psi(expected_pct: list[float], actual_pct: list[float]) -> float:
+def _psi(
+    expected_pct: list[float],
+    actual_pct: list[float],
+    n_actual: int,
+    n_expected: int,
+) -> float:
     """
-    PSI avec lissage de Laplace sur actual_pct pour éviter log(0).
-    Les expected_pct viennent du baseline et sont déjà non-nuls.
+    PSI avec lissage de Laplace applique SYMETRIQUEMENT aux deux distributions,
+    chacune avec son propre nombre d'echantillons :
+      - n_actual   : mesures de production ayant servi a calculer actual_pct
+      - n_expected : taille du jeu d'entrainement ayant servi a calculer
+                     expected_pct (training_stats["n_samples"])
+
+    Lisser uniquement actual_pct (comme avant) ne suffit pas : quand un bin
+    du baseline est reellement vide (expected_pct == 0, ex. valeurs
+    manquantes imputees a la meme mediane a l'entrainement), le plancher a
+    1e-9 sur `e` reste des ordres de grandeur en dessous de tout `a` lisse
+    (>= 1/(n_bins*alpha+n_actual)) — meme une production parfaitement fidele
+    (0 observation dans ce bin aussi) produit alors un ecart artificiel
+    enorme. Lisser expected_pct avec n_expected (grand, ex. 3276) au lieu de
+    le plancher arbitrairement corrige ce cas : l'ecart residuel refletera
+    la vraie incertitude statistique liee a la taille d'echantillon, pas un
+    artefact de la formule.
     """
     n_bins = len(expected_pct)
-    total_actual = sum(actual_pct)
 
-    # Lissage Laplace : (count + alpha) / (total + alpha * k)
-    smoothed = [
-        (a * total_actual + PSI_LAPLACE_ALPHA) / (total_actual + PSI_LAPLACE_ALPHA * n_bins)
-        for a in actual_pct
-    ]
+    def _smooth(pct: list[float], n: int) -> list[float]:
+        return [(p * n + PSI_LAPLACE_ALPHA) / (n + PSI_LAPLACE_ALPHA * n_bins) for p in pct]
+
+    smoothed_actual   = _smooth(actual_pct, n_actual)
+    smoothed_expected = _smooth(expected_pct, n_expected)
 
     score = 0.0
-    for e, a in zip(expected_pct, smoothed):
-        e = max(e, 1e-9)
+    for e, a in zip(smoothed_expected, smoothed_actual):
         score += (a - e) * math.log(a / e)
     return round(score, 6)
 
@@ -130,7 +147,7 @@ def compute_drift(db, window_days: int = 30) -> dict:
         n      = len(values)
 
         actual_pct = _bin_values(values, ref["bin_edges"])
-        psi        = _psi(ref["expected_pct"], actual_pct)
+        psi        = _psi(ref["expected_pct"], actual_pct, n, stats["n_samples"])
         level      = _psi_level(psi, n)
 
         prod_mean = round(float(np.mean(values)), 4) if values else None

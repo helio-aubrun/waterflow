@@ -8,9 +8,11 @@ services:
     environment:
       # ── Obligatoires ───────────────────────────────────────────
       - DATABASE_URL=sqlite:////data/waterflow2.db
-      - MLFLOW_TRACKING_URI=sqlite:////data/mlflow_water.db
-      - MLFLOW_URI=${MLFLOW_URI:-models:/WaterQualityXGBoost/1}
+      - MODEL_PATH=/app/model_artifacts/xgboost_model.json
       - SCALER_PATH=/app/model_artifacts/robust_scaler.pkl
+      # ── Experts (obligatoire : sans elle, aucun analyste/exploit
+      #    ne peut s'authentifier, cf. api/middleware/auth.py) ────
+      - EXPERT_TOKENS=${EXPERT_TOKENS}
       # ── OCR ────────────────────────────────────────────────────
       - OCR_SPACE_API_KEY=${OCR_SPACE_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
