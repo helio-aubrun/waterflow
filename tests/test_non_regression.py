@@ -21,7 +21,7 @@ import secrets
 import pytest
 import numpy as np
 import pandas as pd
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 # ──────────────────────────────────────────────────────────
@@ -207,7 +207,8 @@ class TestContratAPI:
             "ph", "Hardness", "Solids", "Chloramines", "Sulfate",
             "Conductivity", "Organic_carbon", "Trihalomethanes", "Turbidity"
         }
-        # On vérifie que toutes les features attendues sont acceptées sans erreur
+        assert set(self.valid_payload.keys()) == expected_features
+        # On vérifie aussi que toutes les features attendues sont acceptées sans erreur
         resp = self.client.post(
             "/predict",
             data=json.dumps(self.valid_payload),
@@ -225,7 +226,8 @@ class TestContratAPI:
         peut se désynchroniser de la version de mlflow installée, cassant
         toute prédiction indépendamment du modèle lui-même.
         """
-        import inspect, api.services.predict_service as ps
+        import inspect
+        import api.services.predict_service as ps
         assert "model_artifacts/xgboost_model.json" in inspect.getsource(ps)
 
 
@@ -403,12 +405,14 @@ class TestConfigurationModele:
 
     def test_chemin_modele_inchange(self):
         """Le chemin par défaut du modèle ne doit pas changer silencieusement."""
-        import inspect, api.services.predict_service as ps
+        import inspect
+        import api.services.predict_service as ps
         assert self.EXPECTED_MODEL_PATH in inspect.getsource(ps)
 
     def test_chemin_scaler_inchange(self):
         """Le chemin du scaler ne doit pas être modifié sans mise à jour du test."""
-        import inspect, api.services.predict_service as ps
+        import inspect
+        import api.services.predict_service as ps
         assert self.EXPECTED_SCALER_PATH in inspect.getsource(ps)
 
     def test_nombre_features_api_inchange(self):

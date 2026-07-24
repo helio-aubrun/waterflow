@@ -7,7 +7,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()  # charge .env si présent
 
-from api.app import create_app
+from api.app import create_app  # noqa: E402 — après load_dotenv(), volontaire
 
 app = create_app()
 

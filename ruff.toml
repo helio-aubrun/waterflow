@@ -1,0 +1,8 @@
+# Configuration ruff — Waterflow
+#
+# Les notebooks (notebooks/) sont des artefacts d'exploration et
+# d'entraînement (hors ligne de production, cf. docs/outils_test.md) — pas
+# du code servi. Les y appliquer les mêmes règles de style que l'API produit
+# du bruit sans valeur (semicolons/f-strings dans du code Jupyter exploratoire)
+# sans jamais avoir affecté le service réellement déployé.
+exclude = ["notebooks"]

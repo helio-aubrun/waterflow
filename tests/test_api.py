@@ -35,10 +35,10 @@ _mock_model.predict_proba.return_value  = np.array([[0.13, 0.87]])
 _mock_scaler = MagicMock()
 _mock_scaler.transform.side_effect = lambda x: x
 
-from api.app        import create_app
-from api.models.db  import init_db, SessionLocal, Client
+from api.app        import create_app  # noqa: E402 — après setdefault des env vars, volontaire
+from api.models.db  import init_db, SessionLocal, Client  # noqa: E402
 
-import api.services.predict_service as _ps
+import api.services.predict_service as _ps  # noqa: E402
 _ps._model  = _mock_model
 _ps._scaler = _mock_scaler
 

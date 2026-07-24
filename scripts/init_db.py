@@ -404,7 +404,7 @@ def seed(db):
         n_created += 1
 
     db.commit()
-    print(f"\n── Prélèvements synthétiques (monitoring) ───────────────────────────")
+    print("\n── Prélèvements synthétiques (monitoring) ───────────────────────────")
     print(f"  ✓  {n_created} prélèvements générés (dérive volontaire sur Chloramines)"
           + (f", {n_skipped} déjà présents ignorés" if n_skipped else ""))
 
