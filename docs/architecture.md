@@ -103,10 +103,20 @@ et dans `request_metrics` (latence, code retour — alimente `/exploitation/metr
 ## 6. Déploiement et preuve de concept
 
 Le déploiement est conteneurisé (`Dockerfile`, utilisateur non-root, healthcheck) et
-orchestré via `docker-compose.yml` (volume persistant, `restart: unless-stopped`). La
-chaîne CI/CD (`.github/workflows/ci.yml`) construit l'image et la publie sur GHCR, puis un
-job de déploiement se connecte en SSH à l'environnement cible, tire la nouvelle image et
-vérifie sa bonne santé via `GET /health` avant de considérer le déploiement réussi.
+orchestré via `docker-compose.yml` (volume persistant, `restart: unless-stopped`).
+
+Le projet a deux chaînes CI/CD distinctes :
+- `.github/workflows/ci.yml` — lint + tests + couverture (seuil 75 % appliqué), puis
+  construction et publication de l'image sur GHCR (uniquement sur `push`, pas sur PR), puis
+  déploiement SSH avec vérification de santé via `GET /health` (uniquement sur `main`).
+- `.github/workflows/model_ci.yml` — validation dédiée du modèle ML (intégrité des
+  artefacts, performance vs seuils, stabilité des prédictions), déclenchée automatiquement
+  quand les artefacts/notebook/données changent, ou manuellement à tout moment
+  (`workflow_dispatch`).
+
+Inventaire complet des jobs, étapes et déclencheurs des deux chaînes (y compris ceux qui
+ne se déclenchent pas automatiquement, ex. pas de build/deploy sur pull request) :
+`docs/chaine_cicd.md`.
 
 La preuve de concept est l'application elle-même, fonctionnelle en environnement de
 pré-production (mode Docker Compose local) : `docker compose up -d`, puis
