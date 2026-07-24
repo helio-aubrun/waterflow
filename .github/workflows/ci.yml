@@ -32,7 +32,7 @@ jobs:
 
       - name: Tests unitaires + couverture
         env:
-          DATABASE_URL:      sqlite:///:memory:
+          DATABASE_URL:      "sqlite:///:memory:"
           SCALER_PATH:       mock
           OCR_SPACE_API_KEY: ""
           ANTHROPIC_API_KEY: ""
