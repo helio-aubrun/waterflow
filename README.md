@@ -32,6 +32,7 @@ waterflow/
 ├── pytest.ini                      # Configuration pytest
 ├── docs/
 │   ├── architecture.md            # Documentation d'architecture
+│   ├── mcd.md                     # Modélisation des données (MCD/MPD, formalisme Merise)
 │   ├── rgpd.md                    # Conformité RGPD détaillée
 │   ├── owasp.md                   # Correspondance OWASP API Security Top 10
 │   ├── test_coverage.md           # Matrice de traçabilité tests ↔ endpoints
@@ -61,6 +62,10 @@ waterflow/
 
 Artefacts générés au runtime (bases SQLite, tracking MLflow) ne sont pas
 repris ci-dessus — voir `.gitignore`.
+
+Modélisation des données (MCD/MPD au formalisme Merise — entités,
+associations, cardinalités, décisions de modélisation notables) :
+`docs/mcd.md`.
 
 ---
 

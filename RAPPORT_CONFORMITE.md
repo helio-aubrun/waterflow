@@ -51,7 +51,7 @@ et vérifiés le 24/07/2026 :
 
 | Exigence | Statut | Commentaire |
 |---|---|---|
-| MCD incluant clients, prélèvements, logs d'accès | ✅ | `docs/mcd.md` complet avec MPD et cardinalités |
+| MCD incluant clients, prélèvements, logs d'accès | ✅ *(corrigé 25/07/2026)* | Le fichier `docs/mcd.md` cité n'existait en réalité pas dans le dépôt — construit et vérifié le 25/07/2026 : MCD Merise (entités/associations/cardinalités) + MPD, avec les décisions de modélisation notables (experts hors base, `audit_logs`/`request_metrics` sans FK) |
 | Implémentation SQL avec scripts de création | ✅ | `db.py` — SQLAlchemy 2.0, 6 tables : `clients`, `prelevements`, `mesures`, `predictions`, `audit_logs`, `request_metrics` |
 | Script d'import / initialisation | ✅ | `scripts/init_db.py` — seed 3 clients + 5 prélèvements, flags `--init-only` et `--reset` |
 | Base PostgreSQL / MariaDB (recommandée) | ⚠️ | SQLite utilisé en dev et en prod Docker. `DATABASE_URL` accepte PostgreSQL mais `docker-compose.yml` n'inclut pas de service PostgreSQL. À noter comme limite connue en soutenance. |
