@@ -80,6 +80,8 @@ manuelle serait source d'erreurs de transcription. Précondition : au moins une 
 - Si les mesures extraites sont incomplètes, le prélèvement est tout de même archivé,
   avec `prediction_possible: false` et le détail des champs manquants.
 - Taille de fichier limitée (`MAX_UPLOAD_MB`), rejet explicite au-delà.
+- Le résultat (verdict et mesures extraites) est annoncé aux technologies d'assistance :
+  `#ocr-res` porte `role="alert" aria-live="assertive"`.
 
 ## US-03 — Déposer une fiche labo pour simple archivage
 
@@ -100,8 +102,11 @@ volontairement aucune prédiction.
   fallback également en échec) → `503`, rien n'est stocké — contrairement au cas de mesures
   *partiellement* lisibles, qui lui est bien archivé.
 
-**Critères d'acceptation** : le prélèvement et les mesures OCR (même partielles) sont
-stockés ; aucune prédiction n'est calculée.
+**Critères d'acceptation** :
+- Le prélèvement et les mesures OCR (même partielles) sont stockés ; aucune prédiction
+  n'est calculée.
+- Le résultat de l'archivage est annoncé aux technologies d'assistance via la même zone
+  `#ocr-res` (`role="alert" aria-live="assertive"`) que pour US-02.
 
 ## US-04 — Consulter l'historique de mes prélèvements et résultats
 
@@ -209,6 +214,9 @@ transverse.
   reste à vérifier lors de la recette finale que les 4 filtres (client, source, date
   début, date fin) sont bien tous exposés dans le formulaire (point de vigilance
   identifié en revue interne).
+- La navigation entre cette vue et les autres vues expertes utilise un composant onglet
+  conforme RGAA (`role="tablist"`/`role="tab"`, `aria-selected`, `aria-controls` sur
+  `#expert-tabs`), activable au clavier.
 
 ## US-08 — Visualiser un dashboard de KPIs qualité
 
@@ -229,8 +237,11 @@ entre analystes.
   indicateurs renvoient des valeurs nulles/vides plutôt qu'une erreur, l'interface reste
   utilisable.
 
-**Critères d'acceptation** : les indicateurs se recalculent à la demande (pas de cache
-périmé), et le dashboard web les affiche en cartes chiffrées + graphiques.
+**Critères d'acceptation** :
+- Les indicateurs se recalculent à la demande (pas de cache périmé), et le dashboard web
+  les affiche en cartes chiffrées + graphiques.
+- L'onglet Dashboard est accessible via le même composant onglet RGAA-conforme que les
+  autres vues expertes (`role="tab"`, `aria-selected`, `aria-controls`, activable clavier).
 
 ## US-09 — Surveiller la dérive du modèle en production
 
@@ -261,6 +272,10 @@ deviennent visiblement mauvaises, trop tard pour anticiper.
 - Une alerte est levée si la confiance moyenne des prédictions descend sous 65 % ou si
   le taux de potabilité dévie de plus de 15 points par rapport à la baseline
   d'entraînement.
+- L'onglet Monitoring, réservé au rôle `exploit`, est non seulement masqué visuellement
+  mais aussi retiré de l'ordre de tabulation pour un rôle non habilité (`showTab()` le
+  recalcule à chaque changement d'onglet — cf. bug de réinitialisation trouvé et corrigé,
+  `docs/accessibilite.md` §3) : un analyste au clavier ne peut pas tomber dessus par erreur.
 
 ## US-10 — Consulter les métriques système et le journal d'audit RGPD
 
@@ -293,6 +308,12 @@ planifier (inscrit au backlog produit).
 
 Les objectifs d'accessibilité sont formulés selon le référentiel **RGAA** (Référentiel
 Général d'Amélioration de l'Accessibilité) et intégrés directement aux critères
-d'acceptation ci-dessus plutôt que traités à part : rôles ARIA sur les composants
-interactifs (`role="tab"`, `aria-selected`, `aria-controls`), zones live pour les messages
-d'erreur (`aria-live`), focus clavier visible sur tous les contrôles interactifs.
+d'acceptation de 7 des 10 user stories (US-01, US-02, US-03, US-04, US-07, US-08, US-09) :
+rôles ARIA sur les composants interactifs (`role="tab"`, `aria-selected`, `aria-controls`),
+zones live pour les messages d'erreur et résultats (`aria-live`), focus clavier visible sur
+tous les contrôles interactifs. US-05, US-06 et US-10 n'ont pas de critère d'accessibilité
+dédié : aucune preuve spécifique (au-delà des éléments génériques déjà couverts par
+d'autres US, ex. la navigation par onglets) n'a été trouvée dans le code à leur date de
+vérification — à combler si une exigence RGAA propre à ces parcours est identifiée.
+Détail complet, y compris les écarts et limites connues (boutons "Actualiser" sans style de
+focus personnalisé, Swagger UI non audité) : `docs/accessibilite.md`.

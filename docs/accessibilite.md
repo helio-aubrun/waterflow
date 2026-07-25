@@ -29,19 +29,39 @@ D'après `docs/user_stories.md` §"Contexte et profils utilisateurs" :
 
 Cette décision est documentée comme volontaire dans `docs/architecture.md` (*"Interface web unique (vue client + vue expert), conforme RGAA"*) et dans la synthèse de `docs/user_stories.md`.
 
-## 3. Matrice parties prenantes × critères RGAA × preuve code
+## 3. Matrice parties prenantes × critères de standard × preuve code
 
-| Partie prenante | Fonctionnalité | Critère RGAA visé | Preuve dans le code | Statut |
+> Chaque référence RGAA/WCAG ci-dessous a été **vérifiée contre le
+> référentiel officiel** (RGAA 4.1.2, portail accessibilité.public.lu — pas
+> citée de mémoire) avant d'être inscrite ; une citation antérieure erronée
+> a été trouvée et corrigée à cette occasion (cf. note sous le tableau). Les
+> deux lignes qui ne correspondent à aucun critère de standard identifiable
+> sont marquées comme telles plutôt que rattachées artificiellement à RGAA.
+
+| Partie prenante | Fonctionnalité | Critère de standard visé | Preuve dans le code | Statut |
 |---|---|---|---|---|
-| Toutes | Navigation générale | Lien d'évitement (RGAA 12.7) | `.skip-link` → `#main-content`, `templates/index.html` L20-27, 142 | ✅ |
-| Toutes | Connexion | Labels associés, erreurs annoncées | `<label for="inp-key">`/`for="inp-tok"`, `#login-err` `role="alert" aria-live="assertive"` | ✅ |
-| Toutes | Icônes décoratives | Alternative textuelle (RGAA 1.1/1.2) | `aria-hidden="true"` sur les emojis (15+ occurrences) | ✅ |
-| Analyste / Exploitation | Onglets de navigation | Composant onglet accessible (RGAA 7/11) | `role="tablist"`/`role="tab"`/`role="tabpanel"`, `aria-selected`, `aria-controls` | ✅ |
-| Exploitation | Onglet Monitoring | Visible uniquement pour le rôle habilité | `showTab()` masque l'onglet si `role !== 'exploit'`, recalculé à chaque changement d'onglet | ✅ (corrigé — bug de réinitialisation trouvé et résolu, cf. échanges précédents) |
-| **Client** | **US-01 — formulaire d'analyse manuelle** | **Labels associés aux champs, erreurs via `aria-live`** | `buildManualForm()` : `<label for="mf-${f.k}">`, `#manual-res`/`#ocr-res` `role="alert" aria-live="assertive"` | ✅ **corrigé** — labels non associés et zones sans `aria-live` à l'origine (contredisait US-01), corrigés et vérifiés dans un vrai navigateur |
-| Client | US-04 — historique des prélèvements | Tableau accessible au clavier | `prevTable()` : vrai `<table>`/`<thead>`/`<tbody>` sémantique, pas de widget custom | ✅ |
-| Client | Upload OCR — résultat | Mesures extraites lisibles, pas seulement le verdict | `renderExtractedMesures()` : affiche les 9 mesures + avertissements OCR | ✅ (ajouté suite à une demande explicite, testé avec le vrai modèle) |
+| Toutes | Navigation générale | Lien d'évitement (**RGAA 12.7**) | `.skip-link` → `#main-content`, `templates/index.html` L20-27, 142 | ✅ |
+| Toutes | Connexion | Étiquettes associées (**RGAA 11.1** + **11.4**), erreur annoncée (**WCAG 4.1.3** *Status Messages*) | `<label for="inp-key">`/`for="inp-tok"`, `#login-err` `role="alert" aria-live="assertive"` | ✅ |
+| Toutes | Icônes décoratives | Alternative textuelle (**RGAA 1.1/1.2**) | `aria-hidden="true"` sur les emojis (15+ occurrences) | ✅ |
+| Analyste / Exploitation | Onglets de navigation | Composant script accessible (**RGAA 7.1** rôle pertinent + **7.3** clavier) | `role="tablist"`/`role="tab"`/`role="tabpanel"`, `aria-selected`, `aria-controls` | ✅ *(citation corrigée — précédemment « RGAA 7/11 », la thématique 11 est « Formulaires », sans rapport ; le bon repère est la thématique 7 « Scripts »)* |
+| Exploitation | Onglet Monitoring | *(pas un critère d'accessibilité — règle d'autorisation/moindre privilège)* | `showTab()` masque l'onglet si `role !== 'exploit'`, recalculé à chaque changement d'onglet | ✅ (corrigé — bug de réinitialisation trouvé et résolu, cf. échanges précédents) |
+| **Client** | **US-01 — formulaire d'analyse manuelle** | **RGAA 11.1 + 11.4** (étiquettes), **WCAG 4.1.3** (erreur via `aria-live`) | `buildManualForm()` : `<label for="mf-${f.k}">`, `#manual-res`/`#ocr-res` `role="alert" aria-live="assertive"` | ✅ **corrigé** — labels non associés et zones sans `aria-live` à l'origine (contredisait US-01), corrigés et vérifiés dans un vrai navigateur |
+| Client | US-04 — historique des prélèvements | Structure programmatiquement déterminable (**WCAG 1.3.1** — pas de numéro RGAA précis identifié avec confiance pour ce cas) | `prevTable()` : vrai `<table>`/`<thead>`/`<tbody>` sémantique, pas de widget custom | ✅ |
+| Client | Upload OCR — résultat | *(pas un critère d'accessibilité — exigence de complétude du contenu restitué)* | `renderExtractedMesures()` : affiche les 9 mesures + avertissements OCR | ✅ (ajouté suite à une demande explicite, testé avec le vrai modèle) |
 | *(Consommateur API)* | Documentation OpenAPI | — | Swagger UI (Flasgger), composant tiers | ⚠️ non audité indépendamment (voir §5) |
+
+**Note sur la citation corrigée** : « RGAA 7/11 » (onglets) avait été
+initialement rédigée par association informelle avec les thématiques
+« Scripts » et « Formulaires », sans vérification contre le référentiel
+officiel — en le vérifiant (recherche + lecture du référentiel RGAA 4.1.2
+et du portail accessibilité.public.lu), la thématique 11 s'est révélée
+sans rapport avec les composants d'onglets (elle concerne les formulaires).
+De même, « RGAA 11.10 » envisagé pour l'accolement étiquette/champ était
+incorrect (11.10 concerne le contrôle de saisie) — le bon critère est
+**11.4**. Les deux lignes reclassées (Monitoring, OCR) décrivaient des
+exigences réelles et déjà correctement implémentées, mais n'étaient pas
+des critères d'un standard d'accessibilité au sens strict — les présenter
+comme tels aurait été inexact.
 
 ## 4. Comment reproduire cette vérification
 
