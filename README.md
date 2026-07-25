@@ -43,7 +43,8 @@ waterflow/
 │   ├── accessibilite.md           # Accessibilité RGAA par partie prenante
 │   ├── monitoring_preuve.md       # Preuve de fonctionnement de la chaîne de monitorage
 │   ├── incident.md                # Procédure de gestion d'incident
-│   └── user_stories.md            # User stories du projet
+│   ├── user_stories.md            # User stories du projet
+│   └── parcours_utilisateurs.md   # Schémas fonctionnels + wireframes des parcours par profil
 ├── notebooks/                      # Exploration des données, entraînement du modèle
 ├── data/                           # Jeu de données source (water_potability.csv)
 ├── samples/                        # Fiches labo (exemples OCR, dont un PDF de test manuel)
@@ -65,7 +66,9 @@ repris ci-dessus — voir `.gitignore`.
 
 Modélisation des données (MCD/MPD au formalisme Merise — entités,
 associations, cardinalités, décisions de modélisation notables) :
-`docs/mcd.md`.
+`docs/mcd.md`. Modélisation des parcours utilisateurs (schémas fonctionnels
+et wireframes textuels par profil — client, analyste, exploitation) :
+`docs/parcours_utilisateurs.md`.
 
 ---
 
