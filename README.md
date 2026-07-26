@@ -256,6 +256,31 @@ Le dossier `samples/` contient trois fiches :
 
 ---
 
+## Choix du service OCR — synthèse de veille
+
+Cinq solutions cloud d'extraction de texte/données ont été étudiées (OCR.space, Google Cloud
+Vision, Azure Form Recognizer, Tesseract, Claude Vision) selon quatre critères issus du besoin
+réel du projet : coût (plan gratuit), simplicité d'intégration, support PDF natif, qualité
+d'extraction en français.
+
+**Solution retenue (primaire) : OCR.space** — meilleur rapport simplicité/coût/support PDF pour
+un MVP (25 000 requêtes gratuites/mois, aucun SDK à installer, moteur dédié aux tableaux de
+mesures). **Solution de secours : Claude Vision** (Anthropic) — relais automatique et
+transparent si OCR.space échoue ou est indisponible, apportant une capacité de compréhension
+sémantique qui compense la perte du moteur OCR structuré sur les cas difficiles.
+
+Solutions écartées : Google Cloud Vision (plan gratuit trop restrictif, authentification plus
+lourde), Azure Form Recognizer (nécessiterait un modèle personnalisé entraîné sur un corpus de
+fiches, non disponible à ce stade — candidat prioritaire pour une itération future), Tesseract
+(charge d'hébergement et de maintenance disproportionnée pour un projet solo).
+
+En pratique, le service fonctionne en cascade à 4 niveaux selon les clés API disponibles
+(`OCR_SPACE_API_KEY`/`ANTHROPIC_API_KEY`, cf. `.env.example`), avec dégradation progressive
+plutôt qu'interruption totale en cas de configuration partielle ou de panne d'un fournisseur —
+détail du paramétrage dans le docstring de tête de `api/services/ocr_service.py`.
+
+---
+
 ## Conformité RGPD
 
 - Clés API hashées SHA-256 (jamais stockées en clair)
