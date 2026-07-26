@@ -94,6 +94,47 @@ def _ocr_space(file_bytes: bytes, mime: str, filename: str = "document") -> str:
     return "\n\n".join(p.get("ParsedText", "") for p in pages).strip()
 
 
+# ── Extraction JSON robuste (réponses Claude) ─────────────────────────────────
+
+def _extract_json(text: str) -> dict[str, Any]:
+    """
+    Isole et parse le premier objet JSON complet d'un texte de réponse LLM.
+
+    Remplace un ancien `re.search(r"\\{.*\\}", ..., re.DOTALL)` gourmand qui
+    capturait du premier '{' au tout dernier '}' du texte — fragile dès que la
+    réponse contient plusieurs blocs braced ou du texte après le JSON (échec
+    réel observé en production : "Expecting ',' delimiter"). Ce scan compte
+    les accolades équilibrées en ignorant celles à l'intérieur de chaînes.
+    """
+    start = text.find("{")
+    if start == -1:
+        raise ValueError(f"Aucun JSON trouvé dans la réponse : {text[:300]}")
+
+    depth, in_string, escape = 0, False, False
+    for i, ch in enumerate(text[start:], start):
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(text[start:i + 1])
+                except json.JSONDecodeError as exc:
+                    raise ValueError(f"JSON mal formé : {exc}") from exc
+
+    raise ValueError(f"JSON incomplet (accolades non équilibrées) : {text[:300]}")
+
+
 # ── Claude Vision ────────────────────────────────────────────────────────────
 
 def _claude_vision_extract(file_bytes: bytes, mime: str) -> dict[str, Any]:
@@ -127,12 +168,9 @@ def _claude_vision_extract(file_bytes: bytes, mime: str) -> dict[str, Any]:
             ],
         }],
     )
-    raw = response.content[0].text
+    raw   = response.content[0].text
     clean = re.sub(r"```(?:json)?\s*", "", raw).strip()
-    match = re.search(r"\{.*\}", clean, re.DOTALL)
-    if not match:
-        raise ValueError(f"Réponse Claude non JSON : {raw[:300]}")
-    return json.loads(match.group())
+    return _extract_json(clean)
 
 
 # ── Claude text → structure ──────────────────────────────────────────────────
@@ -149,15 +187,16 @@ def _claude_structure(raw_text: str) -> dict[str, Any]:
     )
     response = client.messages.create(
         model      = ANTHROPIC_MODEL,
-        max_tokens = 1024,
+        # 2048 (aligné sur _claude_vision_extract) : le JSON de sortie inclut
+        # une transcription intégrale (raw_text) en plus des mesures/warnings ;
+        # 1024 tronquait la réponse en milieu de génération sur des documents
+        # substantiels, produisant un JSON incomplet (bug réel observé).
+        max_tokens = 2048,
         messages   = [{"role": "user", "content": prompt}],
     )
     raw   = response.content[0].text
     clean = re.sub(r"```(?:json)?\s*", "", raw).strip()
-    match = re.search(r"\{.*\}", clean, re.DOTALL)
-    if not match:
-        raise ValueError(f"Réponse Claude non JSON : {raw[:300]}")
-    return json.loads(match.group())
+    return _extract_json(clean)
 
 
 # ── Extraction basique (fallback sans Claude) ────────────────────────────────

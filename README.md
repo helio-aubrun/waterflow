@@ -42,6 +42,7 @@ waterflow/
 │   ├── chaine_cicd.md             # Inventaire complet des jobs, étapes et déclencheurs CI/CD
 │   ├── accessibilite.md           # Accessibilité RGAA par partie prenante
 │   ├── monitoring_preuve.md       # Preuve de fonctionnement de la chaîne de monitorage
+│   ├── preuve_ocr_c8.md           # Preuve de paramétrage réel du service OCR (rapport E2, C8)
 │   ├── incident.md                # Procédure de gestion d'incident
 │   ├── user_stories.md            # User stories du projet
 │   └── parcours_utilisateurs.md   # Schémas fonctionnels + wireframes des parcours par profil
@@ -278,6 +279,10 @@ En pratique, le service fonctionne en cascade à 4 niveaux selon les clés API d
 (`OCR_SPACE_API_KEY`/`ANTHROPIC_API_KEY`, cf. `.env.example`), avec dégradation progressive
 plutôt qu'interruption totale en cas de configuration partielle ou de panne d'un fournisseur —
 détail du paramétrage dans le docstring de tête de `api/services/ocr_service.py`.
+
+Preuve de paramétrage réel (correspondance besoins ↔ configuration, exécution
+contre les vraies API avec un fichier réel, cycle test → bug trouvé →
+correction → re-test) : `docs/preuve_ocr_c8.md`.
 
 ---
 
