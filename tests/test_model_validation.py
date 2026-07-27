@@ -318,3 +318,116 @@ class TestStabilite:
         assert abs(rate_live - rate_saved) < 0.01, (
             f"Taux potabilité live={rate_live:.3f} vs sauvegardé={rate_saved:.3f}"
         )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# SECTION 5 — Service predict_service.py (appel réel du module)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Écart trouvé en session de vérification : ni TestInference (ci-dessus, qui
+# recharge modèle/scaler indépendamment via xgboost/joblib) ni
+# tests/test_unitaires.py (qui réplique la logique de formatage localement)
+# n'appellent jamais réellement api.services.predict_service.run_prediction().
+# Cette section comble ce trou : elle importe le vrai module et appelle sa
+# vraie fonction publique, chemin nominal ET erreurs, artefacts réels.
+
+class TestServicePrediction:
+    """Appelle réellement predict_service.run_prediction() — pas de mock,
+    pas de recalcul indépendant : le vrai chemin de code utilisé par l'API."""
+
+    SAMPLE_POTABLE = {
+        "ph": 7.0, "Hardness": 200.0, "Solids": 20000.0, "Chloramines": 7.5,
+        "Sulfate": 350.0, "Conductivity": 400.0, "Organic_carbon": 14.0,
+        "Trihalomethanes": 66.0, "Turbidity": 3.5,
+    }
+    SAMPLE_DOUTEUX = {
+        "ph": 5.0, "Hardness": 320.0, "Solids": 55000.0, "Chloramines": 12.5,
+        "Sulfate": 480.0, "Conductivity": 680.0, "Organic_carbon": 28.0,
+        "Trihalomethanes": 120.0, "Turbidity": 9.0,
+    }
+
+    @pytest.fixture(autouse=True)
+    def _force_vrai_rechargement(self):
+        """
+        api.services.predict_service est un module Python partagé (mis en
+        cache) sur toute la session pytest, à double titre :
+          1. conftest.py fixe SCALER_PATH="mock" en variable d'environnement
+             avant tout import — MODEL_PATH/SCALER_PATH du module sont donc
+             calculés une fois pour toutes sur cette valeur factice.
+          2. D'autres fichiers de test (test_api.py, test_e2e.py...) y
+             injectent en plus des objets `_model`/`_scaler` mockés au
+             moment de leur import, avant que ce fichier ne s'exécute
+             (ordre alphabétique).
+        Sans ce fixture, run_prediction() utiliserait silencieusement un
+        modèle mocké (ou plantrait sur le chemin "mock") au lieu des vrais
+        artefacts. On force ici les vrais chemins et un vrai rechargement,
+        puis on restaure l'état précédent pour ne pas contaminer les tests
+        suivants.
+        """
+        import api.services.predict_service as ps
+        prev_model, prev_scaler = ps._model, ps._scaler
+        prev_model_path, prev_scaler_path = ps.MODEL_PATH, ps.SCALER_PATH
+        ps._model, ps._scaler = None, None
+        ps.MODEL_PATH, ps.SCALER_PATH = MODEL_PATH, SCALER_PATH
+        yield ps
+        ps._model, ps._scaler = prev_model, prev_scaler
+        ps.MODEL_PATH, ps.SCALER_PATH = prev_model_path, prev_scaler_path
+
+    def test_prediction_reelle_echantillon_favorable(self, _force_vrai_rechargement):
+        """
+        Un échantillon aux valeurs favorables produit une classe binaire valide.
+        N'affirme PAS potable==1 : aucun autre test du fichier (TestInference
+        ::test_sortie_binaire, sur le même échantillon) ne garantit cette classe
+        précise — seul SAMPLE_DOUTEUX a une classe attendue vérifiée (0, cf.
+        test_sample_douteux_non_potable). Le modèle réel a une performance
+        modeste (~63-67% accuracy, cf. metadata.json) : présumer la classe
+        d'un échantillon synthétique sur la seule base de son nom serait une
+        preuve non vérifiée, pas une preuve réelle.
+        """
+        ps     = _force_vrai_rechargement
+        result = ps.run_prediction(self.SAMPLE_POTABLE)
+        assert result["potable"] in (0, 1)
+        assert result["label"] in ("Potable", "Non potable")
+
+    def test_prediction_reelle_echantillon_douteux(self, _force_vrai_rechargement):
+        """Un échantillon défavorable doit être classé non potable via le vrai module."""
+        ps     = _force_vrai_rechargement
+        result = ps.run_prediction(self.SAMPLE_DOUTEUX)
+        assert result["potable"] == 0
+        assert result["label"] == "Non potable"
+
+    def test_reponse_forme_et_types_reels(self, _force_vrai_rechargement):
+        """La réponse du vrai module doit respecter le contrat attendu par les routes."""
+        ps     = _force_vrai_rechargement
+        result = ps.run_prediction(self.SAMPLE_POTABLE)
+        assert set(result.keys()) == {"potable", "label", "probability", "model_version"}
+        assert isinstance(result["potable"], int)
+        assert isinstance(result["probability"], float)
+        assert 0.0 <= result["probability"] <= 1.0
+        assert result["model_version"] == ps.MODEL_VERSION
+
+    def test_feature_manquante_leve_valueerror_reel(self, _force_vrai_rechargement):
+        """Une mesure manquante doit lever ValueError — chemin d'erreur réel, pas simulé."""
+        ps      = _force_vrai_rechargement
+        mesures = dict(self.SAMPLE_POTABLE)
+        del mesures["ph"]
+        with pytest.raises(ValueError, match="ph"):
+            ps.run_prediction(mesures)
+
+    def test_valeur_non_numerique_leve_valueerror_reel(self, _force_vrai_rechargement):
+        """Une valeur non numérique doit lever ValueError — chemin d'erreur réel."""
+        ps      = _force_vrai_rechargement
+        mesures = dict(self.SAMPLE_POTABLE)
+        mesures["ph"] = "pas-un-nombre"
+        with pytest.raises(ValueError):
+            ps.run_prediction(mesures)
+
+    def test_chargement_unique_singleton_reel(self, _force_vrai_rechargement):
+        """_ensure_loaded() ne doit recharger le modèle qu'une seule fois (pattern singleton)."""
+        ps = _force_vrai_rechargement
+        ps.run_prediction(self.SAMPLE_POTABLE)
+        model_apres_1er_appel = ps._model
+        ps.run_prediction(self.SAMPLE_DOUTEUX)
+        assert ps._model is model_apres_1er_appel, (
+            "Le modèle a été rechargé alors qu'il aurait dû être réutilisé (singleton)"
+        )

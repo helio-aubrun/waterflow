@@ -1,7 +1,7 @@
 # Waterflow — Plan de test du modèle ML
 
 > Document de preuve : liste l'ensemble des cas de test touchant au modèle
-> (92 tests, répartis sur 3 fichiers, vérifiés par collecte directe via
+> (98 tests, répartis sur 3 fichiers, vérifiés par collecte directe via
 > `pytest --collect-only`), avec pour chaque groupe la **partie du
 > modèle/pipeline visée**, le **périmètre** et la **stratégie de test**.
 > Construit après avoir trouvé une ambiguïté réelle entre deux fichiers au
@@ -27,7 +27,7 @@
 | `TestPrediction` (10, dont 2 paramétrés) | Formatage de la réponse (`potable`/`label`/`probability`) | Logique pure de mise en forme, réplique manuellement le code de la route | A — fonction `_build_response()` locale au test, **aucun modèle ni scaler impliqué** |
 | `TestDataset` (6) | Le dataset source `data/water_potability.csv` | Qualité structurelle (colonnes, doublons, plage pH, valeurs manquantes) | D — lecture directe du CSV réel via pandas |
 
-## 3. `tests/test_model_validation.py` (29 tests) — Stratégie B
+## 3. `tests/test_model_validation.py` (35 tests) — Stratégie B
 
 > Docstring du fichier : *"Ces tests chargent les vrais artefacts... Ils ne
 > mockent rien : ils vérifient que le modèle en production est correct."*
@@ -39,6 +39,7 @@
 | `TestPerformance` (8) | Le modèle XGBoost **réel**, recalcul de ses métriques | Accuracy/F1/ROC-AUC/PR-AUC/CV mean+std/équilibre précision-rappel vs seuils fixes (`THRESHOLDS`) | B — modèle et scaler réels, prédictions recalculées en live sur `X_val_sc.npy`/`y_val.npy` |
 | `TestInference` (8) | Comportement du modèle réel sur des entrées contrôlées | Sortie binaire, probabilité dans [0,1], somme des classes = 1, déterminisme, 9 features attendues, inférence batch | B — modèle et scaler réels, échantillons construits à la main (`SAMPLE_POTABLE`, `SAMPLE_DOUTEUX`) |
 | `TestStabilite` (3) | Cohérence entre prédictions **live** et prédictions **sauvegardées** à l'entraînement (`y_pred.npy`/`y_pred_prob.npy`) | Détection de toute dérive silencieuse du modèle réel entre deux exécutions | B — comparaison de sorties réelles, tolérance `1e-4` |
+| `TestServicePrediction` (6) | `api/services/predict_service.py::run_prediction()` — **le vrai module, appelé réellement** | Chemin nominal (classe binaire valide, forme de réponse, `model_version`), chemins d'erreur réels (feature manquante/non numérique → `ValueError`), pattern singleton (`_model` rechargé une seule fois) | B — ajouté suite à une vérification ayant trouvé qu'aucun test n'appelait jamais `run_prediction()` ni `_ensure_loaded()` (ni ici, ni dans `test_unitaires.py`, qui réplique la logique localement sans importer le module) |
 
 ## 4. `tests/test_non_regression.py` (31 tests — la totalité du fichier, 5 classes) — Stratégies A/C/D
 
@@ -64,14 +65,14 @@ tests/test_non_regression.py`) — il n'y a pas de tests "hors périmètre
 modèle" à part dans ce fichier ; les tests d'intégration API pure sont dans
 `tests/test_api.py`/`tests/test_fonctionnels.py` (cf. `docs/test_coverage.md`).
 
-## 5. Inventaire complet (vérifié par `pytest --collect-only`, 24/07/2026)
+## 5. Inventaire complet (vérifié par `pytest --collect-only`, 27/07/2026)
 
 ```
 tests/test_unitaires.py ............................. 32 tests
-tests/test_model_validation.py ....................... 29 tests
+tests/test_model_validation.py ....................... 35 tests
 tests/test_non_regression.py ......................... 31 tests
 ──────────────────────────────────────────────────────────────
-Total                                                   92 tests
+Total                                                   98 tests
 ```
 
 Détail par classe (compté en distinguant les cas paramétrés, à partir de
@@ -87,12 +88,13 @@ l'arbre produit par `--collect-only`, `<Function ...>` par cas) :
 | test_model_validation.py | TestPerformance | 8 |
 | test_model_validation.py | TestInference | 8 |
 | test_model_validation.py | TestStabilite | 3 |
+| test_model_validation.py | TestServicePrediction | 6 |
 | test_non_regression.py | TestContratAPI | 11 |
 | test_non_regression.py | TestStabilitePreprocessing | 6 |
 | test_non_regression.py | TestReproductibilitePredictions | 5 |
 | test_non_regression.py | TestMetriquesPerformance | 6 |
 | test_non_regression.py | TestConfigurationModele | 3 |
-| **Total** | | **92** |
+| **Total** | | **98** |
 
 Commande de reproduction (compte le total) :
 ```bash
@@ -110,15 +112,21 @@ pytest tests/test_unitaires.py tests/test_model_validation.py tests/test_non_reg
 
 **Garanti aujourd'hui** : le modèle réel est testé (intégrité, performance
 vs seuils, comportement d'inférence, stabilité) indépendamment de l'API
-(`test_model_validation.py`), et la logique applicative autour est testée
+(`test_model_validation.py`), la logique applicative autour est testée
 séparément avec des doubles (`test_unitaires.py`, une partie de
-`test_non_regression.py`) — une séparation de préoccupations saine.
+`test_non_regression.py`) — une séparation de préoccupations saine — et,
+depuis l'ajout de `TestServicePrediction` (§3), le **vrai module de
+service** (`predict_service.run_prediction()`) est désormais appelé
+réellement, ce qu'aucun test ne faisait auparavant (ni `test_unitaires.py`,
+qui réplique la logique sans importer le module, ni `TestInference`, qui
+recharge modèle/scaler indépendamment en contournant `_ensure_loaded()`).
 
 **Manquant pour une couverture complète** :
-- Aucun test ne vérifie le modèle **à travers** l'API avec les vrais
-  artefacts en même temps (l'intégration API teste avec un modèle mocké,
-  cf. `tests/test_api.py`, `docs/test_coverage.md` ; la validation modèle
-  teste sans passer par l'API) — un test end-to-end avec le **vrai** modèle
-  servi par une **vraie** requête HTTP comblerait cet interstice.
+- `TestServicePrediction` appelle `run_prediction()` **directement en
+  Python** (import du module), pas via une **vraie requête HTTP** — il
+  reste donc un interstice plus étroit qu'avant : aucun test ne vérifie le
+  modèle réel servi par une vraie requête `POST /predict` bout en bout
+  (l'intégration API teste avec un modèle mocké, cf. `tests/test_api.py`,
+  `docs/test_coverage.md`).
 - Pas de test de **temps de réponse** du modèle (latence d'inférence),
   seulement des métriques de qualité prédictive.
