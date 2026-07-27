@@ -110,9 +110,28 @@ Aucun déclenchement manuel (`workflow_dispatch`) sur cette chaîne — seul `pu
 | 4 | Vérifier la stabilité des prédictions | Compare les prédictions live aux prédictions sauvegardées (`y_pred.npy`/`y_pred_prob.npy`) — échoue si une classe prédite diverge ou si l'écart de probabilité dépasse `1e-4` |
 | 5 | Pytest stabilité | `pytest tests/test_model_validation.py::TestStabilite -v --tb=short` |
 
-### 2.3 Point de vigilance trouvé en construisant cet inventaire
+### 2.3 Point de vigilance trouvé en construisant cet inventaire — quantifié
 
 Le job `performance` exclut `test_metriques_coherentes` (`-k "not test_metriques_coherentes"`) **sans commentaire expliquant pourquoi** dans le fichier YAML — ce test s'exécute donc uniquement lors d'un lancement local de la suite complète (`pytest tests/`), jamais en CI. Ce n'est pas nécessairement un défaut (le test peut être redondant avec les vérifications de seuils faites juste avant dans la même étape), mais ce n'était documenté nulle part avant ce document.
+
+**Mesure précise de l'écart** (est-ce que la chaîne exécute *tous* les tests
+disponibles au moment de son déclenchement, ou un sous-ensemble silencieux ?) :
+
+```bash
+$ pytest tests/ --collect-only -q
+212 tests collected                              # ci.yml : exécute bien les 212/212
+
+$ pytest tests/test_model_validation.py --collect-only -q
+35 tests collected                               # tout ce qui existe dans ce fichier
+
+$ pytest tests/test_model_validation.py -k "not test_metriques_coherentes" --collect-only -q
+34/35 tests collected (1 deselected)              # ce que model_ci.yml::performance exécute réellement
+```
+
+`ci.yml` respecte donc pleinement ce principe (212/212, aucune exclusion),
+tandis que `model_ci.yml::performance` exécute 34 des 35 tests disponibles
+dans `test_model_validation.py` — un écart réel, mais mesuré précisément et
+limité à un seul test sur l'ensemble du projet, pas un défaut caché.
 
 ## 3. Configuration initiale de la CI (installation, pour un fork ou un nouveau dépôt)
 
