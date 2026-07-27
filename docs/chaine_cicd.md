@@ -136,7 +136,45 @@ fonctionnent dès le premier push** — seul le job `deploy` requiert une
 étape d'installation volontaire (les 3 lignes `DEPLOY_*` ci-dessus), tant
 qu'aucun serveur de production n'est provisionné.
 
-## 4. Comment déclencher chaque chaîne manuellement (reproduction)
+## 4. Preuve d'exécution : les étapes préalables suffisent, depuis un environnement vierge
+
+Preuve que le job `test` de `ci.yml` intègre réellement toutes les étapes
+nécessaires avant l'exécution des tests (checkout, setup Python, installation
+des dépendances) : la séquence exacte a été rejouée dans un conteneur
+`python:3.11-slim` **neuf** (aucun cache pip, aucune dépendance
+pré-installée) — pas sur la machine de développement, qui masquerait une
+dépendance manquante que la vraie CI détecterait.
+
+```bash
+docker run --rm -v "<repo>":/repo -w /repo python:3.11-slim bash -c '
+  python --version
+  pip install -q -r requirements.txt pytest pytest-cov ruff
+  ruff check . --select E,F,W --ignore E501
+  DATABASE_URL=sqlite:///:memory: SCALER_PATH=mock OCR_SPACE_API_KEY= ANTHROPIC_API_KEY= \
+    pytest tests/ --cov=api --cov-report=term-missing --cov-fail-under=75 -q
+'
+```
+
+Résultat réel :
+
+```
+Python 3.11.15
+Dépendances installées.
+All checks passed!                                          ← lint
+212 passed, 14 warnings in 15.95s                            ← tests
+Required test coverage of 75% reached. Total coverage: 80.62%
+```
+
+Aucune configuration cachée, aucune dépendance manquante : les étapes
+préalables suffisent à elles seules à faire réussir la suite de tests
+jusqu'au bout, seuil de couverture inclus. Écart mineur sans rapport avec
+ce critère : couverture globale 80.62 % ici contre 82 % en local
+(`docs/couverture_execution.md`) — `ocr_service.py` a grossi (128 lignes,
+fonction `_extract_json` ajoutée) sans nouveau test dédié pour cette
+fonction, diluant légèrement son taux ; le seuil de 75 % reste largement
+respecté dans les deux cas.
+
+## 5. Comment déclencher chaque chaîne manuellement (reproduction)
 
 ```bash
 # ci.yml : uniquement via push/PR, pas de déclenchement manuel possible
@@ -147,7 +185,7 @@ git push origin ma-branche   # déclenche `test` (+ `build` si push direct, pas 
 # (équivalent CLI : gh workflow run model_ci.yml)
 ```
 
-## 5. Limites
+## 6. Limites
 
 - Cet inventaire est construit par lecture statique des fichiers YAML — il ne
   constitue pas une preuve d'exécution réelle sur GitHub Actions (nécessiterait

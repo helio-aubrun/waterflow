@@ -21,6 +21,11 @@ venv/
 .venv/
 .claude/
 
+# pytest-cov / coverage.py — artefacts regeneres a chaque run
+.coverage
+coverage.xml
+htmlcov/
+
 # Jupyter checkpoints
 .ipynb_checkpoints/
 *.pdf
