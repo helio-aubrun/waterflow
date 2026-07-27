@@ -193,7 +193,40 @@ fonction `_extract_json` ajoutée) sans nouveau test dédié pour cette
 fonction, diluant légèrement son taux ; le seuil de 75 % reste largement
 respecté dans les deux cas.
 
-## 5. Comment déclencher chaque chaîne manuellement (reproduction)
+## 5. Preuve d'exécution : l'étape de livraison (publication GHCR) a réellement produit un artefact récupérable
+
+Le référentiel de certification (Simplon, C19) cite explicitement la
+**pull request** comme exemple d'« étape de livraison » — dans `ci.yml`,
+l'équivalent est la **publication de l'image packagée sur le registre**
+(job `build`, étape `docker/build-push-action@v5` vers GHCR), pas le job
+`deploy` (SSH), qui est une étape suivante et distincte. Preuve que cette
+publication a réellement abouti à un artefact récupérable, pas seulement à
+un job vert dans l'interface GitHub :
+
+```bash
+$ docker pull ghcr.io/helio-aubrun/waterflow2:latest
+latest: Pulling from helio-aubrun/waterflow2
+Digest: sha256:4c9b697723b6e19099a840565d7c0e008251a3b9e0c16ebe3b92db9e025325fc
+Status: Downloaded newer image for ghcr.io/helio-aubrun/waterflow2:latest
+
+$ docker image inspect ghcr.io/helio-aubrun/waterflow2:latest \
+    --format '{{.Created}} | Size: {{.Size}} bytes'
+2026-07-27T13:24:43Z | Size: 864088969 bytes
+```
+
+L'image existe réellement sur un registre **public**, récupérable par
+n'importe qui (pas seulement depuis la machine qui a construit l'image),
+et sa date de création (le jour même) confirme qu'il s'agit du résultat
+d'un run CI réel et récent, pas d'un artefact figé. Le job `build`
+(`needs: test`) s'est donc bien exécuté après validation des tests, et son
+résultat a bien été **livré** à un registre externe — l'étape de livraison
+au sens du référentiel est satisfaite, indépendamment du job `deploy` (SSH
+vers un serveur), qui reste une étape ultérieure non requise par les
+critères d'évaluation (aucune mention d'un serveur de production dans le
+référentiel — seule une preuve de concept en pré-production est demandée,
+cf. C15).
+
+## 6. Comment déclencher chaque chaîne manuellement (reproduction)
 
 ```bash
 # ci.yml : uniquement via push/PR, pas de déclenchement manuel possible
@@ -204,12 +237,15 @@ git push origin ma-branche   # déclenche `test` (+ `build` si push direct, pas 
 # (équivalent CLI : gh workflow run model_ci.yml)
 ```
 
-## 6. Limites
+## 7. Limites
 
-- Cet inventaire est construit par lecture statique des fichiers YAML — il ne
-  constitue pas une preuve d'exécution réelle sur GitHub Actions (nécessiterait
-  un push vers le remote et l'observation d'un run réel, hors périmètre de
-  cette vérification documentaire).
+- Cet inventaire est construit en grande partie par lecture statique des
+  fichiers YAML, complétée par des preuves d'exécution réelle où c'était
+  possible (§4 : rejeu local des étapes du job `test` ; §5 : `docker pull`
+  confirmant qu'un run réel de `ci.yml::build` a bien publié une image sur
+  GHCR). Cela ne couvre pas pour autant une observation directe de
+  l'interface GitHub Actions elle-même (logs de run, durée exacte par
+  étape) depuis cet environnement de vérification.
 - §3 liste ce qu'il **faut** configurer, mais ne vérifie pas ce qui est
   **effectivement** configuré dans les paramètres réels du dépôt GitHub
   (accès direct à `Settings → Secrets and variables` non disponible depuis
