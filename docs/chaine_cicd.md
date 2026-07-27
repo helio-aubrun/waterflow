@@ -114,7 +114,29 @@ Aucun déclenchement manuel (`workflow_dispatch`) sur cette chaîne — seul `pu
 
 Le job `performance` exclut `test_metriques_coherentes` (`-k "not test_metriques_coherentes"`) **sans commentaire expliquant pourquoi** dans le fichier YAML — ce test s'exécute donc uniquement lors d'un lancement local de la suite complète (`pytest tests/`), jamais en CI. Ce n'est pas nécessairement un défaut (le test peut être redondant avec les vérifications de seuils faites juste avant dans la même étape), mais ce n'était documenté nulle part avant ce document.
 
-## 3. Comment déclencher chaque chaîne manuellement (reproduction)
+## 3. Configuration initiale de la CI (installation, pour un fork ou un nouveau dépôt)
+
+Contrairement à l'inventaire des jobs (§1-2), cette section n'existait pas
+avant cette vérification. Elle liste ce qu'il faut réellement configurer
+dans les paramètres GitHub du dépôt pour que les deux chaînes fonctionnent
+de bout en bout — pas seulement ce qui est lu dans les fichiers YAML.
+
+| Élément | Type | Où le créer | Obligatoire ? |
+|---|---|---|---|
+| `GITHUB_TOKEN` | — | Aucune action requise | Généré et injecté automatiquement par GitHub Actions à chaque run — sert à l'authentification GHCR (job `build`) |
+| `DEPLOY_HOST` | Variable (pas secret) | `Settings → Secrets and variables → Actions → Variables → New repository variable` | Non — tant qu'absente, le job `deploy` est **ignoré (skip)**, pas en échec (cf. §1.3) |
+| `DEPLOY_USER` | Secret | `Settings → Secrets and variables → Actions → Secrets → New repository secret` | Seulement si `DEPLOY_HOST` est renseignée |
+| `DEPLOY_SSH_KEY` | Secret | idem — clé privée SSH complète (format PEM) | Seulement si `DEPLOY_HOST` est renseignée |
+| `EXPERT_TOKENS`, `OCR_SPACE_API_KEY`, `ANTHROPIC_API_KEY` | — | **Non requis en CI** | `conftest.py` fixe des valeurs factices (`SCALER_PATH=mock`, clés OCR vides) pour que `ci.yml` reste autonome — ces vraies clés ne servent qu'à l'exécution locale/Docker de l'application, pas aux tests |
+| Codecov | — | Aucun token requis pour un dépôt **public** | `codecov/codecov-action@v4` fonctionne sans token sur les dépôts publics ; un token (`CODECOV_TOKEN`, secret) ne serait nécessaire que pour un dépôt privé |
+
+**En pratique, sur un dépôt public comme celui-ci, aucune configuration
+manuelle n'est strictement nécessaire pour que `test` et `build`
+fonctionnent dès le premier push** — seul le job `deploy` requiert une
+étape d'installation volontaire (les 3 lignes `DEPLOY_*` ci-dessus), tant
+qu'aucun serveur de production n'est provisionné.
+
+## 4. Comment déclencher chaque chaîne manuellement (reproduction)
 
 ```bash
 # ci.yml : uniquement via push/PR, pas de déclenchement manuel possible
@@ -125,12 +147,13 @@ git push origin ma-branche   # déclenche `test` (+ `build` si push direct, pas 
 # (équivalent CLI : gh workflow run model_ci.yml)
 ```
 
-## 4. Limites
+## 5. Limites
 
 - Cet inventaire est construit par lecture statique des fichiers YAML — il ne
   constitue pas une preuve d'exécution réelle sur GitHub Actions (nécessiterait
   un push vers le remote et l'observation d'un run réel, hors périmètre de
   cette vérification documentaire).
-- La variable `DEPLOY_HOST` et les secrets requis (`DEPLOY_USER`, `DEPLOY_SSH_KEY`,
-  `GITHUB_TOKEN` implicite) ne sont pas vérifiés ici — leur configuration
-  réelle dans les paramètres du dépôt GitHub n'a pas été auditée.
+- §3 liste ce qu'il **faut** configurer, mais ne vérifie pas ce qui est
+  **effectivement** configuré dans les paramètres réels du dépôt GitHub
+  (accès direct à `Settings → Secrets and variables` non disponible depuis
+  cet environnement de vérification) — à confirmer manuellement sur GitHub.

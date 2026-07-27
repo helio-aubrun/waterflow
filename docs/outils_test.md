@@ -39,6 +39,26 @@ D'après `requirements.txt` et le code applicatif :
 couvrent l'intégralité des besoins sans ajouter de dépendance dont
 l'environnement technique du projet n'a pas besoin par ailleurs.
 
+### 2.1 Pourquoi GitHub Actions spécifiquement (et pas GitLab CI, CircleCI, Jenkins...)
+
+Ce choix n'était justifié nulle part avant cette vérification — seule la
+séparation en deux workflows l'était (ligne ci-dessus). La cohérence avec
+l'environnement technique réel du projet tient à trois points concrets :
+
+- **Le dépôt est hébergé sur GitHub** (`github.com/helio-aubrun/waterflow`) —
+  GitHub Actions s'exécute nativement sur la même plateforme, sans compte ni
+  intégration tierce à configurer (contrairement à Jenkins, qui nécessiterait
+  un serveur dédié à héberger et maintenir soi-même).
+- **Le registre d'images choisi est GHCR** (`ghcr.io`, GitHub Container
+  Registry) — l'authentification entre le job `build` et GHCR utilise
+  `secrets.GITHUB_TOKEN`, généré et injecté automatiquement par GitHub
+  Actions pour chaque run, sans clé à créer ni faire tourner manuellement.
+- **Gratuit sur un dépôt public** pour un projet à budget quasi nul (même
+  contrainte que documentée pour le choix du service OCR, cf. rapport E2
+  §3.1) — un runner CircleCI/GitLab CI externe aurait nécessité une
+  intégration webhook supplémentaire et un compte tiers sans bénéfice
+  correspondant pour ce projet.
+
 ## 3. Écart réel trouvé et corrigé : résidus MLflow
 
 `predict_service.py` a été réécrit pour charger XGBoost et le scaler
