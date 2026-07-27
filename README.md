@@ -40,6 +40,7 @@ waterflow/
 │   ├── outils_test.md             # Cohérence des outils de test avec l'environnement technique
 │   ├── couverture_execution.md    # Couverture mesurée + preuve d'exécution en environnement isolé
 │   ├── chaine_cicd.md             # Inventaire complet des jobs, étapes et déclencheurs CI/CD
+│   ├── preuve_poc.md              # Preuve d'accessibilité et de fonctionnement en pré-production
 │   ├── accessibilite.md           # Accessibilité RGAA par partie prenante
 │   ├── monitoring_preuve.md       # Preuve de fonctionnement de la chaîne de monitorage
 │   ├── preuve_ocr_c8.md           # Preuve de paramétrage réel du service OCR (rapport E2, C8)

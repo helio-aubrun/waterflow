@@ -132,7 +132,8 @@ La preuve de concept est l'application elle-même, fonctionnelle en environnemen
 pré-production (mode Docker Compose local) : `docker compose up -d`, puis
 `docker compose exec waterflow2 python scripts/init_db.py` pour peupler une base de
 démonstration, accessible sur `http://localhost:8080` (interface) et
-`http://localhost:8080/apidocs` (documentation API).
+`http://localhost:8080/apidocs` (documentation API). Preuve d'exécution
+réelle (build, healthcheck, appels authentifiés réussis) : `docs/preuve_poc.md`.
 
 **Conclusion PoC** : l'architecture retenue répond au besoin exprimé (US-01 à US-10) avec
 un niveau de risque technique faible — les seuls points restant à consolider avant une mise
