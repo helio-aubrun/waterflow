@@ -56,7 +56,24 @@ un arbitrage assumé. Pour un projet à cette échelle (solo, MVP) :
   d'exploitants plus élevés, identifié comme piste d'évolution
   (`README.md` « Limites connues »), pas comme un besoin actuel.
 
-## 4. Preuve d'exécution réelle des alertes (tests, pas seulement code)
+## 4. Règles de journalisation ↔ métriques surveillées
+
+Point trouvé absent de toute documentation en session de vérification —
+jusqu'ici seulement affirmé en conversation, jamais écrit. Correspondance
+exacte entre chaque règle de journalisation intégrée aux sources et la
+métrique qu'elle alimente :
+
+| Règle de journalisation | Où dans le code | Métrique alimentée |
+|---|---|---|
+| Décorateur `@timed` sur chaque route exposée (`api/routes/routes.py`) | Appelle `record_metric()` (`api/middleware/auth.py:238`) à chaque requête, quel que soit le résultat | `route`, `method`, `status_code`, `duration_ms` → stockés dans `RequestMetric`, base du calcul de `error_rate`/`p50_ms`/`p95_ms`/`avg_ms` par route dans `exploitation_metrics()` (§2) |
+| `logger.info("Tentative OCR.space...")` / `logger.warning("OCR.space échoué...")` (`api/services/ocr_service.py`) | Un log par tentative et par bascule de niveau de la cascade | Diagnostic qualitatif du **niveau de cascade emprunté** (OCR.space direct / structuration Claude / Claude Vision direct) — complète la métrique quantitative (latence/erreur) par une traçabilité événement par événement, cf. rapport E2 §4.5 |
+| `log_audit("exploitation_metrics")` (`api/routes/routes.py`) | Une entrée par consultation de l'endpoint lui-même | `audit_logs` — traçabilité RGPD de qui a consulté les métriques, pas une métrique système en soi |
+
+`record_metric()` est **non bloquant** (`db.add(...)` sans lever d'exception
+en cas d'échec d'écriture) — une panne de journalisation ne doit jamais
+faire échouer la requête métier qu'elle observe.
+
+## 5. Preuve d'exécution réelle des alertes (tests, pas seulement code)
 
 Les seuils ne sont pas seulement déclarés : ils sont vérifiés par deux
 tests réels qui insèrent des données contrôlées en base puis interrogent
@@ -84,7 +101,7 @@ test_metrics_pas_alerte_latence_route_ocr PASSED
 Suite complète après cet ajout : **214/214 tests passent** (212 précédents
 + 2 nouveaux).
 
-## 5. Installation et dépendances
+## 6. Installation et dépendances
 
 Aucune dépendance supplémentaire : le monitorage système réutilise
 `SQLAlchemy` (déjà dans `requirements.txt`) et la table `RequestMetric`
@@ -92,7 +109,7 @@ déjà créée par `init_db()`. Rien à installer ou configurer séparément —
 contrairement à un outil externe (Prometheus/Grafana), qui aurait nécessité
 une procédure d'installation dédiée.
 
-## 6. Comment reproduire cette vérification
+## 7. Comment reproduire cette vérification
 
 ```bash
 # 1. Lancer les tests dédiés
@@ -104,7 +121,7 @@ curl -H "Authorization: Bearer <token-exploit>" \
 # -> champs "alerts" et "thresholds" dans la réponse
 ```
 
-## 7. Limites
+## 8. Limites
 
 - Les seuils (`ERROR_RATE_WARN=5%`, `P95_WARN_MS=2000`) sont des valeurs de
   départ raisonnables mais non calibrées sur un historique de production
