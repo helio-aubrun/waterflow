@@ -1,4 +1,6 @@
-# Waterflow — Documentation d'incident #1
+# Waterflow — Documentation des incidents
+
+# Incident #1
 
 ## Résumé
 
@@ -158,3 +160,138 @@ comme axe de progrès du projet (cf. rapport E4, C16).
   mise à jour en miroir pour rester fidèle au notebook — un couplage à
   surveiller, documenté ici pour éviter une divergence silencieuse entre les
   deux implémentations.
+
+---
+
+# Incident #2
+
+## Résumé
+
+| | |
+|---|---|
+| **Titre** | JSON tronqué lors de la structuration OCR.space par Claude, sur un document réel |
+| **Sévérité** | Mineure en pratique (le mécanisme de secours masque l'échec pour l'utilisateur final), mais dégrade silencieusement la performance et le diagnostic |
+| **Statut** | Résolu |
+| **Composant** | `api/services/ocr_service.py::_claude_structure()` |
+| **Détecté via** | Appel réel du service avec les vraies clés API et un vrai document (`samples/fiche_non_potable_test.pdf`), pas un test avec mocks |
+
+## 1. Détection et reproduction
+
+En appelant réellement le service OCR (vraies clés `OCR_SPACE_API_KEY`/
+`ANTHROPIC_API_KEY`, vrai fichier PDF), la cascade tombait systématiquement
+sur le mécanisme de secours (Claude Vision direct) au lieu de réussir dès
+le premier niveau (OCR.space + structuration Claude), avec ce message dans
+les logs :
+
+```
+OCR.space échoué (Expecting ',' delimiter: line 15 column 4 (char 384)) — fallback Claude Vision
+```
+
+**Reproduction** :
+
+```python
+from api.services.ocr_service import extract_from_document
+with open("samples/fiche_non_potable_test.pdf", "rb") as f:
+    file_bytes = f.read()
+result = extract_from_document(file_bytes, "application/pdf")
+# -> log "OCR.space échoué..." puis succès via le niveau de secours (42s)
+```
+
+Reproduit à 100 % sur ce document réel, avant toute modification du code.
+
+## 2. Diagnostic — identification de la cause
+
+**Premier niveau de diagnostic (insuffisant)** : le message d'erreur
+(`Expecting ',' delimiter`) provenait de `json.loads()` sur un extrait
+obtenu par une regex gourmande :
+
+```python
+match = re.search(r"\{.*\}", clean, re.DOTALL)   # capture du 1er { au DERNIER }
+```
+
+Ce diagnostic était trompeur — il ressemblait à un JSON mal formé, mais
+sans indiquer *pourquoi*. Une première correction (extraction par comptage
+d'accolades équilibrées, `_extract_json()`, en ignorant les accolades à
+l'intérieur des chaînes) a été apportée pour fiabiliser l'extraction — et a
+immédiatement produit un message bien plus informatif :
+
+```
+OCR.space échoué (JSON incomplet (accolades non équilibrées) : {
+  "date_prelevement": "2026-06-28", ...
+  "Conductivity": 680.0) — fallback Claude Vision
+```
+
+**Cause racine réelle** : la réponse de Claude était **tronquée en cours de
+génération**, pas malformée. `_claude_structure()` appelait l'API avec
+`max_tokens=1024` — insuffisant, car le JSON de sortie doit inclure une
+transcription intégrale (`raw_text`) en plus des mesures et avertissements ;
+sur un document au contenu substantiel, la réponse dépassait cette limite
+et s'arrêtait au milieu de la génération. La fonction sœur
+`_claude_vision_extract()`, elle, utilisait `max_tokens=2048` et n'avait
+jamais ce problème — ce qui a orienté directement vers la correction.
+
+## 3. Solution implémentée
+
+Deux correctifs, appliqués et vérifiés l'un après l'autre :
+
+1. **`_extract_json()`** (nouvelle fonction partagée) : remplace la regex
+   gourmande par un scan à accolades équilibrées, conscient des chaînes de
+   caractères — utilisée par `_claude_vision_extract()` **et**
+   `_claude_structure()`. Corrige le diagnostic, pas encore la cause racine.
+2. **`max_tokens` porté à `2048`** dans `_claude_structure()` (aligné sur
+   `_claude_vision_extract()`) — corrige la cause racine (troncature).
+
+### Pourquoi ces deux correctifs plutôt qu'un seul
+
+| Correctif seul | Résultat |
+|---|---|
+| Seulement `_extract_json()` | Diagnostic plus clair, mais la cascade continue à basculer inutilement vers le secours (bug masqué, pas résolu) |
+| Seulement `max_tokens=2048` | Corrige ce cas précis, mais laisse la regex gourmande fragile face à un futur cas de troncature ou de JSON multi-blocs |
+| **Les deux (retenu)** | Cause racine corrigée **et** robustesse de l'extraction améliorée pour des cas futurs non encore rencontrés |
+
+## 4. Vérification de la correction
+
+```bash
+# Avant les deux correctifs
+OCR.space échoué (Expecting ',' delimiter...) — fallback Claude Vision
+Appel réussi en 42.60s
+
+# Après _extract_json() seul (diagnostic amélioré, bug pas encore résolu)
+OCR.space échoué (JSON incomplet (accolades non équilibrées)...) — fallback Claude Vision
+Appel réussi en 41.22s
+
+# Après les deux correctifs (résolu)
+Appel réussi en 18.09s          # aucun fallback déclenché
+mesures extraites : {'ph': 5.0, 'Hardness': 320.0, ...}   # identiques dans les 3 cas
+```
+
+Même document réel testé aux trois étapes, mesures extraites strictement
+identiques à chaque fois — seul le chemin de la cascade change. Suite de
+tests complète rejouée après coup : **214/214 tests passent**, aucune
+régression (`pytest tests/ -q`).
+
+## 5. Versionnement de la solution
+
+Correction committée sur la branche principale, commit `f6471e3`
+(vérifiable : `git show f6471e3 -- api/services/ocr_service.py`). Message de
+commit non descriptif (`"ajout doc"`) — cohérent avec l'axe d'amélioration
+déjà identifié pour la granularité des messages de commit (cf. rapport E4,
+C16) ; une réintégration via une pull request avec un message explicite
+(`fix: troncature JSON dans la structuration OCR (max_tokens insuffisant)`)
+serait la pratique cible pour une prochaine correction de ce type.
+
+## 6. Impact et suivi
+
+- Impact utilisateur final nul au moment de la détection : le mécanisme de
+  secours (Claude Vision direct) masquait l'échec et produisait un résultat
+  correct — mais avec une latence 2,3× plus élevée (42s vs 18s) et un appel
+  supplémentaire à un service tiers payant à chaque occurrence.
+- Ce bug n'était visible dans **aucun test automatisé** avant cette
+  vérification : `tests/test_api.py`/`test_e2e.py` mockent
+  `extract_from_document`, donc n'exercent jamais le vrai chemin
+  `_claude_structure()` (cf. échange précédent sur l'absence de test réel
+  du service OCR). Seul un appel manuel avec de vraies clés API et un vrai
+  document a permis de le détecter.
+- Point de vigilance pour l'avenir : `max_tokens=2048` reste une valeur
+  fixe, pas adaptative à la taille du document source — un document
+  nettement plus long pourrait retomber dans le même type de troncature.

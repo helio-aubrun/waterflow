@@ -45,7 +45,7 @@ waterflow/
 │   ├── monitoring_preuve.md       # Preuve de fonctionnement de la chaîne de monitorage (modèle)
 │   ├── monitorage_applicatif.md   # Monitorage système : seuils, alertes, choix technique (API)
 │   ├── preuve_ocr_c8.md           # Preuve de paramétrage réel du service OCR (rapport E2, C8)
-│   ├── incident.md                # Procédure de gestion d'incident
+│   ├── incident.md                # Gestion d'incidents réels (2 : dataset test manquant, troncature OCR)
 │   ├── user_stories.md            # User stories du projet
 │   └── parcours_utilisateurs.md   # Schémas fonctionnels + wireframes des parcours par profil
 ├── notebooks/                      # Exploration des données, entraînement du modèle
