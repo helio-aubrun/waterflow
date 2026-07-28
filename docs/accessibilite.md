@@ -63,7 +63,33 @@ exigences réelles et déjà correctement implémentées, mais n'étaient pas
 des critères d'un standard d'accessibilité au sens strict — les présenter
 comme tels aurait été inexact.
 
-## 4. Comment reproduire cette vérification
+## 4. Inventaire technique par critère (occurrences vérifiées dans le code)
+
+Vue complémentaire de la matrice §3 (organisée par partie prenante) :
+ici, un critère RGAA/WCAG par ligne, avec l'implémentation exacte et le
+nombre d'occurrences **recompté dans le code réel** (`templates/index.html`)
+au moment de la rédaction — pas recopié d'une estimation antérieure.
+
+| Critère RGAA/WCAG | Implémentation | Occurrences vérifiées |
+|---|---|---|
+| Langue de la page (RGAA 8.3) | `<html lang="fr">` | ligne 2 |
+| Lien d'évitement (RGAA 12.7 / WCAG 2.4.1) | `.skip-link` → `#main-content`, `<main id="main-content" tabindex="-1">` | lignes 20-21, 27, 142 |
+| Icônes décoratives masquées aux lecteurs d'écran (RGAA 1.1/1.2) | `aria-hidden="true"` sur chaque emoji | 15 occurrences |
+| Onglets accessibles au clavier (**RGAA 7.1 rôle pertinent + 7.3 clavier**) | `role="tablist"`/`role="tab"`/`role="tabpanel"`, `aria-selected`, `aria-controls` | 2 `tablist`, 8 `tab`, 2 `tabpanel`, 8 `aria-controls` |
+| Messages d'erreur annoncés dynamiquement (WCAG 4.1.3) | `role="alert"` + `aria-live="assertive"` sur les zones d'erreur | ligne du bloc `login-err` |
+| Fenêtre modale accessible (RGAA 7.1) | `role="dialog"`, `aria-modal="true"`, `aria-labelledby` | ligne du `#modal` |
+| Labels de formulaire associés (RGAA 11.1 + 11.4) | `<label for="...">` lié à chaque `<input>` | **13 labels** |
+| Indicateur de focus visible au clavier (WCAG 2.4.7) | `focus:ring-2` sur les éléments interactifs | **21 occurrences** |
+| Liens ouvrant un nouvel onglet annoncés (RGAA 6.2) | `aria-label="... (ouvre dans un nouvel onglet)"` sur le lien Swagger | présent |
+
+**Écarts corrigés par rapport à un premier inventaire non versionné** :
+la citation « RGAA 7/11 » pour les onglets a été remplacée par
+**RGAA 7.1 + 7.3** (cf. §3, note de correction — la thématique 11 est
+« Formulaires », sans rapport). Le nombre de labels (13, pas 16) et
+d'indicateurs de focus (21, pas 20) ont aussi été recomptés directement
+dans le fichier plutôt que repris d'une estimation précédente.
+
+## 5. Comment reproduire cette vérification
 
 ```bash
 # 1. Navigation clavier pure (sans souris) : Tab / Shift+Tab / Entrée / flèches
@@ -90,7 +116,7 @@ with sync_playwright() as p:
 #    sur http://localhost:8080 (vue client) et vue experte.
 ```
 
-## 5. Limites et écarts connus
+## 6. Limites et écarts connus
 
 1. **3 boutons "Actualiser"** (`templates/index.html`, vues client/analyste/exploitation) n'ont ni `focus:outline-none` ni `focus:ring` explicite — contrairement au reste de l'interface. Ce n'est **pas** un défaut fonctionnel : n'ayant pas retiré l'outline navigateur par défaut, ces boutons restent visibles au focus clavier (contour natif du navigateur) — c'est une **incohérence visuelle mineure** (style natif vs anneau bleu personnalisé ailleurs), pas une violation RGAA.
 2. **Swagger UI** (`/apidocs`, bibliothèque tierce Flasgger) n'a pas été auditée indépendamment dans le cadre de ce projet — son accessibilité dépend entièrement du composant amont, hors du code de Waterflow.
