@@ -6,7 +6,10 @@
 > (référence UI + API), à l'appui d'exécutions réelles capturées — pas
 > d'affirmation seule. Complète `docs/test_coverage.md` (couverture des
 > tests) et `docs/owasp.md`/`docs/accessibilite.md` (mêmes principes de
-> preuve appliqués ici au monitoring du modèle).
+> preuve appliqués ici au monitoring du modèle). Ce document couvre
+> uniquement le volet **modèle** (dérive PSI, confiance, potabilité) — le
+> volet **système** (latence, taux d'erreur de l'API) est couvert séparément
+> dans `docs/monitorage_applicatif.md`.
 
 ## 1. La spécification visée (US-09)
 

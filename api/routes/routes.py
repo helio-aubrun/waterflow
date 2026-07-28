@@ -58,6 +58,20 @@ logger           = logging.getLogger(__name__)
 bp               = Blueprint("api", __name__)
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024   # 20 Mo
 
+# ── Seuils d'alerte — monitorage système (/exploitation/metrics) ────────────
+# Distincts des seuils du monitorage modèle (monitoring_service.py, PSI/
+# confiance/dérive potabilité) : ici on surveille la santé opérationnelle de
+# l'API elle-même (latence, taux d'erreur), pas la qualité des prédictions.
+ERROR_RATE_WARN = 0.05    # 5% — taux d'erreur au-delà duquel une route est signalée
+P95_WARN_MS     = 2000    # 2 s — latence p95 au-delà de laquelle une route est signalée
+
+# Routes OCR exclues du seuil de latence : dépendent d'appels réseau réels à
+# des API tierces (OCR.space, Claude Vision), avec une latence normale de
+# plusieurs dizaines de secondes en cas de bascule sur le service de secours
+# (cf. docs/preuve_ocr_c8.md — p95 mesuré réellement à ~40s sur un cas réel).
+# Un seuil de 2s s'y déclencherait en permanence sans signaler un vrai problème.
+OCR_ROUTES = {"/ingest/ocr", "/ingest/ocr-and-predict"}
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # UTILITAIRES INTERNES
@@ -887,6 +901,7 @@ def exploitation_metrics():
     - volume de requêtes par route
     - temps de réponse (p50, p95, moyenne)
     - taux d'erreur
+    - alertes système (taux d'erreur, latence p95) par route, vs ERROR_RATE_WARN/P95_WARN_MS
     Paramètre optionnel : ?limit=N (défaut : 5000 dernières requêtes)
     """
     db    = g.db
@@ -917,12 +932,36 @@ def exploitation_metrics():
             "avg_ms":     round(sum(durs) / n, 1)       if durs else 0,
         }
 
+    alerts = []
+    for route, d in summary.items():
+        path = route.split(" ", 1)[1] if " " in route else route
+
+        if d["error_rate"] > ERROR_RATE_WARN:
+            alerts.append({
+                "type":     "error_rate",
+                "route":    route,
+                "severity": "warning",
+                "message":  f"Taux d'erreur élevé sur {route} ({d['error_rate']:.1%})",
+                "detail":   f"Seuil d'alerte : {ERROR_RATE_WARN:.0%}",
+            })
+
+        if path not in OCR_ROUTES and d["p95_ms"] > P95_WARN_MS:
+            alerts.append({
+                "type":     "latency",
+                "route":    route,
+                "severity": "warning",
+                "message":  f"Latence p95 élevée sur {route} ({d['p95_ms']:.0f} ms)",
+                "detail":   f"Seuil d'alerte : {P95_WARN_MS} ms",
+            })
+
     total_preds   = db.query(Prediction).count()
     potable_count = db.query(Prediction).filter(Prediction.potable == 1).count()
 
     log_audit("exploitation_metrics")
     return jsonify({
         "routes":             summary,
+        "alerts":             alerts,
+        "thresholds":         {"error_rate_warn": ERROR_RATE_WARN, "p95_warn_ms": P95_WARN_MS},
         "sample_size":        len(rows),
         "clients_total":      db.query(Client).count(),
         "clients_actifs":     db.query(Client).filter(Client.actif.is_(True)).count(),

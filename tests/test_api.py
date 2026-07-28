@@ -471,6 +471,57 @@ class TestExploitation:
         r = http.get("/exploitation/metrics", headers=client_header)
         assert r.status_code == 401
 
+    def test_metrics_alerte_taux_erreur(self, http):
+        """Un taux d'erreur > ERROR_RATE_WARN sur une route déclenche une alerte."""
+        from api.models.db import RequestMetric
+        from datetime import datetime, timezone
+
+        db = SessionLocal()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        # 10 requêtes, 2 en erreur (400) => 20% > seuil 5%
+        for i in range(10):
+            db.add(RequestMetric(
+                timestamp=now, route="/test/alerte-erreur", method="GET",
+                status_code=400 if i < 2 else 200, duration_ms=50.0,
+            ))
+        db.commit()
+        db.close()
+
+        r = http.get("/exploitation/metrics", headers=BOB_HEADER)
+        assert r.status_code == 200
+        d = r.get_json()
+        assert "thresholds" in d
+        alertes_erreur = [a for a in d["alerts"]
+                          if a["type"] == "error_rate" and "alerte-erreur" in a["route"]]
+        assert len(alertes_erreur) == 1
+
+    def test_metrics_pas_alerte_latence_route_ocr(self, http):
+        """
+        Une latence p95 élevée sur une route OCR ne doit PAS déclencher
+        d'alerte : ces routes dépendent d'appels réseau réels à des API
+        tierces (OCR.space, Claude Vision), avec une latence normale de
+        plusieurs dizaines de secondes (cf. docs/preuve_ocr_c8.md).
+        """
+        from api.models.db import RequestMetric
+        from datetime import datetime, timezone
+
+        db = SessionLocal()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        for _ in range(5):
+            db.add(RequestMetric(
+                timestamp=now, route="/ingest/ocr-and-predict", method="POST",
+                status_code=201, duration_ms=40000.0,  # 40s, largement > P95_WARN_MS
+            ))
+        db.commit()
+        db.close()
+
+        r = http.get("/exploitation/metrics", headers=BOB_HEADER)
+        assert r.status_code == 200
+        d = r.get_json()
+        alertes_latence_ocr = [a for a in d["alerts"]
+                               if a["type"] == "latency" and "ingest/ocr" in a["route"]]
+        assert alertes_latence_ocr == []
+
     def test_audit_exploit(self, http):
         r = http.get("/exploitation/audit", headers=BOB_HEADER)
         assert r.status_code == 200

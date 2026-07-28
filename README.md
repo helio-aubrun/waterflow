@@ -42,7 +42,8 @@ waterflow/
 │   ├── chaine_cicd.md             # Inventaire complet des jobs, étapes et déclencheurs CI/CD
 │   ├── preuve_poc.md              # Preuve d'accessibilité et de fonctionnement en pré-production
 │   ├── accessibilite.md           # Accessibilité RGAA par partie prenante
-│   ├── monitoring_preuve.md       # Preuve de fonctionnement de la chaîne de monitorage
+│   ├── monitoring_preuve.md       # Preuve de fonctionnement de la chaîne de monitorage (modèle)
+│   ├── monitorage_applicatif.md   # Monitorage système : seuils, alertes, choix technique (API)
 │   ├── preuve_ocr_c8.md           # Preuve de paramétrage réel du service OCR (rapport E2, C8)
 │   ├── incident.md                # Procédure de gestion d'incident
 │   ├── user_stories.md            # User stories du projet
@@ -322,6 +323,11 @@ Preuve de fonctionnement de la chaîne de monitorage (`/exploitation/monitoring`
 métriques visées (US-09) vs métriques réellement calculées et restituées
 (API + UI), exécutions réelles capturées (dev, Docker), tests dédiés :
 documentation complète dans `docs/monitoring_preuve.md`.
+
+Monitorage applicatif système (`/exploitation/metrics`) : seuils d'alerte
+(taux d'erreur, latence p95), justification du choix technique (pas de
+Prometheus/Grafana à ce stade), preuve par tests réels :
+`docs/monitorage_applicatif.md`.
 
 ---
 

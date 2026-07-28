@@ -873,6 +873,32 @@ definitions:
               type: number
             avg_ms:
               type: number
+      alerts:
+        type: array
+        description: Alertes systeme (taux d'erreur, latence p95) par route, vs `thresholds`
+        items:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [error_rate, latency]
+            route:
+              type: string
+            severity:
+              type: string
+            message:
+              type: string
+            detail:
+              type: string
+      thresholds:
+        type: object
+        description: Seuils appliques pour generer `alerts`
+        properties:
+          error_rate_warn:
+            type: number
+            format: float
+          p95_warn_ms:
+            type: integer
       sample_size:
         type: integer
         description: Nombre de requetes prises en compte (borne par ?limit=)
