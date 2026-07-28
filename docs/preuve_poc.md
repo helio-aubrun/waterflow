@@ -66,6 +66,43 @@ Cette réponse démontre, dans la stack conteneurisée réelle :
 - le pipeline de prédiction complet exécuté 70 fois avec succès
   (`total_predictions: 70`).
 
+### 3.1 Capture complémentaire (session distincte, serveur local non-Docker)
+
+La capture ci-dessus (§3) a été volontairement tronquée aux champs résumé.
+Le détail par route (`p50_ms`/`p95_ms`/`error_rate`, cf.
+`docs/monitorage_applicatif.md`) a bien été vérifié réellement, mais lors
+d'une **session de vérification distincte** (serveur local, pas Docker) —
+présenté ici séparément plutôt que fusionné avec la capture Docker
+ci-dessus, pour ne pas laisser croire à une seule exécution unique alors
+que les deux runs ont des états de base différents (67 vs 70 prédictions) :
+
+```json
+{
+  "clients_total": 3, "clients_actifs": 2,
+  "total_prelevements": 68, "total_predictions": 67, "potable_rate": 0.5075,
+  "sample_size": 21,
+  "routes": {
+    "GET /analyste/dashboard":      { "count": 3,  "error_rate": 0.0, "p50_ms": 170.0,   "p95_ms": 175.2 },
+    "GET /exploitation/metrics":    { "count": 1,  "error_rate": 0.0, "p50_ms": 20.7,    "p95_ms": 20.7 },
+    "GET /exploitation/monitoring": { "count": 1,  "error_rate": 0.0, "p50_ms": 15.3,    "p95_ms": 15.3 },
+    "GET /me/prelevements":         { "count": 14, "error_rate": 0.0, "p50_ms": 98.5,    "p95_ms": 188.9 },
+    "POST /ingest/ocr-and-predict": { "count": 2,  "error_rate": 0.0, "p50_ms": 40391.9, "p95_ms": 40391.9 }
+  }
+}
+```
+
+Cette capture confirme que le détail par route existe réellement (pas
+seulement dans le schéma), et que la latence p95 anormalement élevée sur
+`POST /ingest/ocr-and-predict` (~40s, appel réel à OCR.space + bascule
+Claude Vision) est exactement le cas d'usage réel qui justifie l'exclusion
+de cette route du seuil d'alerte de latence (`docs/monitorage_applicatif.md` §2).
+
+**Limite de cette preuve** : les deux captures (§3 et §3.1) proviennent de
+deux exécutions réelles distinctes, pas d'un seul run reproductible d'un
+bout à l'autre — une future vérification pourrait les unifier en relançant
+`docker compose up -d --build` puis en interrogeant `/exploitation/metrics`
+une seule fois pour obtenir une capture unique et cohérente.
+
 ## 4. Comment reproduire cette vérification
 
 ```bash

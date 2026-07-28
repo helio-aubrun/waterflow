@@ -114,3 +114,10 @@ curl -H "Authorization: Bearer <token-exploit>" \
   alertes système ne sont pas encore relayées par notification (e-mail,
   push) ni affichées dans l'onglet Monitoring de l'UI — seulement
   disponibles via l'appel API direct à ce stade.
+- **Précision suite à une confusion trouvée en vérification** : le test
+  Playwright réel documenté dans `docs/monitoring_preuve.md` §5 (onglet
+  "🩺 Monitoring" visible/masqué selon le rôle, cartes de dérive affichées)
+  porte sur `GET /exploitation/monitoring` (volet **modèle**) — ce n'est
+  **pas** une preuve d'affichage UI pour `GET /exploitation/metrics` (ce
+  document, volet système), qui n'a aucune restitution graphique à ce jour,
+  comme indiqué au point précédent.
